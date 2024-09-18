@@ -143,38 +143,38 @@ func TestParseLogLevel(t *testing.T) {
 // TestLogger_Debug tests the Debug method of the Logger.
 func TestLogger_Debug(t *testing.T) {
 	tests := []struct {
-		name          string
-		logLevel      LogLevel
-		shouldLog     bool
-		testMessage   string
+		name           string
+		logLevel       LogLevel
+		shouldLog      bool
+		testMessage    string
 		expectedPrefix string
 	}{
 		{
-			name:          "Level_DEBUG_ShouldLog",
-			logLevel:      DEBUG,
-			shouldLog:     true,
-			testMessage:   "This is a debug message",
+			name:           "Level_DEBUG_ShouldLog",
+			logLevel:       DEBUG,
+			shouldLog:      true,
+			testMessage:    "This is a debug message",
 			expectedPrefix: "DEBUG: ",
 		},
 		{
-			name:          "Level_INFO_ShouldNotLog",
-			logLevel:      INFO,
-			shouldLog:     false,
-			testMessage:   "This debug message should not appear",
+			name:           "Level_INFO_ShouldNotLog",
+			logLevel:       INFO,
+			shouldLog:      false,
+			testMessage:    "This debug message should not appear",
 			expectedPrefix: "DEBUG: ",
 		},
 		{
-			name:          "Level_WARN_ShouldNotLog",
-			logLevel:      WARN,
-			shouldLog:     false,
-			testMessage:   "Another debug message that should not be logged",
+			name:           "Level_WARN_ShouldNotLog",
+			logLevel:       WARN,
+			shouldLog:      false,
+			testMessage:    "Another debug message that should not be logged",
 			expectedPrefix: "DEBUG: ",
 		},
 		{
-			name:          "Level_ERROR_ShouldNotLog",
-			logLevel:      ERROR,
-			shouldLog:     false,
-			testMessage:   "Error level should suppress debug messages",
+			name:           "Level_ERROR_ShouldNotLog",
+			logLevel:       ERROR,
+			shouldLog:      false,
+			testMessage:    "Error level should suppress debug messages",
 			expectedPrefix: "DEBUG: ",
 		},
 	}

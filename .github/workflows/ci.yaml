@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - synchronize
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Install Dependencies
+        shell: bash
+        run: go mod tidy
+
+      - name: Run SuperLinter
+        uses: github/super-linter/slim@v7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_ALL_CODEBASE: false
+          DEFAULT_BRANCH: main
+          VALIDATE_GO: true
+
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Check Code Formatting
+        shell: bash
+        run: |
+          FMT_CMD="$(gofmt -s -l .)"
+          if [ -n "$FMT_CMD" ]; then
+            echo "The following files aren't formatted, please run 'go fmt ./...' and commit the changes to your branch"
+            echo "$FMT_CMD"
+            exit 1
+          fi
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Install Dependencies
+        shell: bash
+        run: go mod tidy
+
+      - name: Run Unit Tests
+        shell: bash
+        run: go test -v ./...
+
+      - name: Generate Coverage Report
+        shell: bash
+        run: go test -cover ./...
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Install Dependencies
+        shell: bash
+        run: go mod tidy
+
+      - name: Setup Kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Start Minikube
+        uses: medyagh/setup-minikube@v0.0.18
+
+      - name: Run Integration Tests
+        shell: bash
+        run: |
+          export TEST_KUBECONFIG=~/.kube/config
+          go test ./internal/integration -v
