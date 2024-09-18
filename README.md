@@ -1,12 +1,12 @@
-# Kubernetes Backup & Restore
+# Kubernetes Save & Restore
 
 ```ascii
- __        ___.                                                                                  __                        
-|  | ____ _\_ |__   ____             ___________ ___  __ ____           _______   ____   _______/  |_  ___________   ____  
-|  |/ /  |  \ __ \_/ __ \   ______  /  ___/\__  \\  \/ // __ \   ______ \_  __ \_/ __ \ /  ___/\   __\/  _ \_  __ \_/ __ \ 
-|    <|  |  / \_\ \  ___/  /_____/  \___ \  / __ \\   /\  ___/  /_____/  |  | \/\  ___/ \___ \  |  | (  <_> )  | \/\  ___/ 
-|__|_ \____/|___  /\___  >         /____  >(____  /\_/  \___  >          |__|    \___  >____  > |__|  \____/|__|    \___  >
-     \/         \/     \/               \/      \/          \/                       \/     \/                          \/ 
+_________ .__                        _________               .__
+\_   ___ \|  |__ _____    ____  _____\_   ___ \___.__.______ |  |__   ___________
+/    \  \/|  |  \\__  \  /  _ \/  ___/    \  \<   |  |\____ \|  |  \_/ __ \_  __ \
+\     \___|   Y  \/ __ \(  <_> )___ \\     \___\___  ||  |_> >   Y  \  ___/|  | \/
+ \______  /___|  (____  /\____/____  >\______  / ____||   __/|___|  /\___  >__|
+        \/     \/     \/           \/        \/\/     |__|        \/     \/
 ```
 
 ## Table of Contents
@@ -42,7 +42,7 @@ Kubernetes Backup & Restore is a robust and user-friendly tool designed to simpl
 
 ## Prerequisites
 
-- **Go**: Version 1.22 or higher.
+- **Go**: Version 1.23.1 or higher.
 - **Kubernetes Cluster**: Access to a Kubernetes cluster with appropriate permissions.
 - **kubectl**: Configured with access to your target cluster.
 
@@ -53,7 +53,6 @@ Kubernetes Backup & Restore is a robust and user-friendly tool designed to simpl
 ```bash
 go install github.com/chaoscypher/k8s-backup-restore@latest
 ```
-
 
 ### Building from Source
 
@@ -94,7 +93,6 @@ k8s-backup-restore --mode=backup [flags]
 k8s-backup-restore --mode=backup --backup-dir=/path/to/backup --dry-run=false --log-level=info
 ```
 
-
 **Flags:**
 
 - `--kubeconfig`: Path to the kubeconfig file (defaults to `$HOME/.kube/config`).
@@ -131,16 +129,16 @@ k8s-backup-restore --mode=restore --restore-dir=/path/to/backup --dry-run=true -
 
 You can configure Kubernetes Backup & Restore using command-line flags or environment variables. Environment variables take precedence over flags.
 
-| Flag               | Environment Variable | Description                                      |
-|--------------------|-----------------------|--------------------------------------------------|
-| `--kubeconfig`     | `KUBECONFIG`          | Path to the kubeconfig file.                     |
-| `--context`        | `KUBE_CONTEXT`        | Kubernetes context to use.                       |
-| `--backup-dir`     | `BACKUP_DIR`          | Directory where backups will be stored.          |
-| `--restore-dir`    | `RESTORE_DIR`         | Directory from where backups will be restored.    |
-| `--mode`           | `MODE`                | Operation mode: `backup` or `restore`.           |
-| `--dry-run`        | `DRY_RUN`             | Execute a dry run without making any changes.     |
-| `--log-level`      | `LOG_LEVEL`           | Logging level: `debug`, `info`, `warn`, `error`. |
-| `--log-file`       | `LOG_FILE`            | Path to the log file.                             |
+| Flag            | Environment Variable | Description                                      |
+| --------------- | -------------------- | ------------------------------------------------ |
+| `--kubeconfig`  | `KUBECONFIG`         | Path to the kubeconfig file.                     |
+| `--context`     | `KUBE_CONTEXT`       | Kubernetes context to use.                       |
+| `--backup-dir`  | `BACKUP_DIR`         | Directory where backups will be stored.          |
+| `--restore-dir` | `RESTORE_DIR`        | Directory from where backups will be restored.   |
+| `--mode`        | `MODE`               | Operation mode: `backup` or `restore`.           |
+| `--dry-run`     | `DRY_RUN`            | Execute a dry run without making any changes.    |
+| `--log-level`   | `LOG_LEVEL`          | Logging level: `debug`, `info`, `warn`, `error`. |
+| `--log-file`    | `LOG_FILE`           | Path to the log file.                            |
 
 **Example using Environment Variables:**
 
@@ -151,12 +149,12 @@ export LOG_LEVEL=info
 k8s-backup-restore
 ```
 
-
 ## Logging
 
 Kubernetes Backup & Restore provides flexible logging options to help you monitor and debug operations.
 
 - **Log Levels**:
+
   - `DEBUG`: Detailed information, typically of interest only when diagnosing problems.
   - `INFO`: Confirmation that things are working as expected.
   - `WARN`: An indication that something unexpected happened, or indicative of some problem in the near future.
@@ -170,10 +168,17 @@ Kubernetes Backup & Restore provides flexible logging options to help you monito
 
 The project includes comprehensive tests covering various components.
 
-### Run Tests
+### Run Unit Tests
 
 ```bash
 go test -v ./...
+```
+
+### Run Integration Tests
+
+```bash
+export TEST_KUBECONFIG=<>
+go test -tags=integration -v ./...
 ```
 
 ### Generate Coverage Report
@@ -182,7 +187,6 @@ go test -v ./...
 go test ./... -coverprofile=coverage.out
 go tool cover -html=coverage.out -o coverage.html
 ```
-
 
 ## Contributing
 

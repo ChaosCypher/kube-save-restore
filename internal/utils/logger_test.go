@@ -3,58 +3,104 @@ package utils
 import (
 	"bytes"
 	"fmt"
-	"k8s-backup-restore/internal/config"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/chaoscypher/k8s-backup-restore/internal/config"
 )
 
-// TestNewLogger tests the creation of a new Logger instance
-func TestNewLogger(t *testing.T) {
-	var buf bytes.Buffer
-	logger := NewLogger(&buf, INFO)
-
-	if logger.level != INFO {
-		t.Errorf("Expected log level %v, got %v", INFO, logger.level)
-	}
-	if logger.output != &buf {
-		t.Errorf("Expected output %v, got %v", &buf, logger.output)
+// String returns the string representation of the LogLevel.
+func (l LogLevel) String() string {
+	switch l {
+	case DEBUG:
+		return "DEBUG"
+	case INFO:
+		return "INFO"
+	case WARN:
+		return "WARN"
+	case ERROR:
+		return "ERROR"
+	default:
+		return "UNKNOWN"
 	}
 }
 
-// TestSetupLogger tests the setup of the logger based on configuration
+// Helper function to create a new Logger with a buffer and specified log level.
+func createTestLogger(t *testing.T, level LogLevel) (*Logger, *bytes.Buffer) {
+	t.Helper()
+	var buf bytes.Buffer
+	logger := NewLogger(&buf, level)
+	return logger, &buf
+}
+
+// Helper function to setup Logger based on config.
+func setupLoggerFromConfig(t *testing.T, cfg *config.Config) *Logger {
+	t.Helper()
+	return SetupLogger(cfg)
+}
+
+// Helper function to perform logging and verify the output.
+func logAndVerify(t *testing.T, logger *Logger, buf *bytes.Buffer, logFunc func(*Logger, string, ...interface{}), shouldLog bool, expectedPrefix string, message string, args ...interface{}) {
+	t.Helper()
+	logFunc(logger, message, args...)
+	logOutput := buf.String()
+
+	if shouldLog {
+		expectedMessage := fmt.Sprintf(message, args...)
+		if !strings.Contains(logOutput, expectedPrefix) || !strings.Contains(logOutput, expectedMessage) {
+			t.Errorf("Expected log output to contain '%s' and message '%s'. Got: %s", expectedPrefix, expectedMessage, logOutput)
+		}
+	} else if strings.Contains(logOutput, expectedPrefix) {
+		t.Errorf("Did not expect log output with prefix '%s'. Got: %s", expectedPrefix, logOutput)
+	}
+}
+
+// TestNewLogger tests the creation of a new Logger instance.
+func TestNewLogger(t *testing.T) {
+	logger, buf := createTestLogger(t, INFO)
+
+	if logger.Level != INFO {
+		t.Errorf("Expected log level %v, got %v", INFO, logger.Level)
+	}
+	if logger.Output != buf {
+		t.Errorf("Expected output %v, got %v", buf, logger.Output)
+	}
+}
+
+// TestSetupLogger tests the setup of the logger based on configuration.
 func TestSetupLogger(t *testing.T) {
 	cfg := &config.Config{LogFile: "", LogLevel: "debug"}
-	logger := SetupLogger(cfg)
+	logger := setupLoggerFromConfig(t, cfg)
 
-	if logger.level != DEBUG {
-		t.Errorf("Expected log level %v, got %v", DEBUG, logger.level)
+	if logger.Level != DEBUG {
+		t.Errorf("Expected log level %v, got %v", DEBUG, logger.Level)
 	}
-	if logger.output != os.Stdout {
-		t.Errorf("Expected output %v, got %v", os.Stdout, logger.output)
+	if logger.Output != os.Stdout {
+		t.Errorf("Expected output %v, got %v", os.Stdout, logger.Output)
 	}
 }
 
-// TestSetupLoggerWithFile tests the setup of the logger with a log file
+// TestSetupLoggerWithFile tests the setup of the logger with a log file.
 func TestSetupLoggerWithFile(t *testing.T) {
 	logFile := "test.log"
 	defer os.Remove(logFile) // Clean up
 
 	cfg := &config.Config{LogFile: logFile, LogLevel: "info"}
-	logger := SetupLogger(cfg)
+	logger := setupLoggerFromConfig(t, cfg)
 
-	if logger.level != INFO {
-		t.Errorf("Expected log level %v, got %v", INFO, logger.level)
+	if logger.Level != INFO {
+		t.Errorf("Expected log level %v, got %v", INFO, logger.Level)
 	}
-	if logger.output == os.Stdout {
-		t.Errorf("Expected output to be a file, got %v", logger.output)
+	if logger.Output == os.Stdout {
+		t.Errorf("Expected output to be a file, got %v", logger.Output)
 	}
 	if _, err := os.Stat(logFile); os.IsNotExist(err) {
 		t.Errorf("Expected log file %s to be created", logFile)
 	}
 }
 
-// TestLoggerEdgeCases tests edge cases for the logger
+// TestLoggerEdgeCases tests edge cases for the logger.
 func TestLoggerEdgeCases(t *testing.T) {
 	var buf bytes.Buffer
 	logger := NewLogger(&buf, DEBUG)
@@ -85,14 +131,14 @@ func TestLogger_Close(t *testing.T) {
 
 		// Initialize Logger with the temporary file
 		logger := &Logger{
-			logFile: tmpFile,
+			LogFile: tmpFile,
 		}
 
 		// Call Close method
 		logger.Close()
 
 		// Attempt to write to the closed file to ensure it's closed
-		_, err = logger.logFile.WriteString("test")
+		_, err = logger.LogFile.WriteString("test")
 		if err == nil {
 			t.Error("Expected error when writing to closed file, but got none")
 		}
@@ -101,13 +147,13 @@ func TestLogger_Close(t *testing.T) {
 	t.Run("Close without logFile", func(t *testing.T) {
 		// Initialize Logger without a logFile
 		logger := &Logger{
-			logFile: nil,
+			LogFile: nil,
 		}
 
 		// Ensure that calling Close does not panic
 		defer func() {
 			if r := recover(); r != nil {
-				t.Errorf("Close() panicked when logFile is nil: %v", r)
+				t.Errorf("Close() panicked when LogFile is nil: %v", r)
 			}
 		}()
 
@@ -140,290 +186,102 @@ func TestParseLogLevel(t *testing.T) {
 	}
 }
 
-// TestLogger_Debug tests the Debug method of the Logger.
-func TestLogger_Debug(t *testing.T) {
+// TestLoggerMethods tests the various logging methods of the Logger.
+func TestLoggerMethods(t *testing.T) {
 	tests := []struct {
-		name           string
+		method         string
 		logLevel       LogLevel
 		shouldLog      bool
-		testMessage    string
+		logFunc        func(*Logger, string)
 		expectedPrefix string
+		message        string
 	}{
-		{
-			name:           "Level_DEBUG_ShouldLog",
-			logLevel:       DEBUG,
-			shouldLog:      true,
-			testMessage:    "This is a debug message",
-			expectedPrefix: "DEBUG: ",
-		},
-		{
-			name:           "Level_INFO_ShouldNotLog",
-			logLevel:       INFO,
-			shouldLog:      false,
-			testMessage:    "This debug message should not appear",
-			expectedPrefix: "DEBUG: ",
-		},
-		{
-			name:           "Level_WARN_ShouldNotLog",
-			logLevel:       WARN,
-			shouldLog:      false,
-			testMessage:    "Another debug message that should not be logged",
-			expectedPrefix: "DEBUG: ",
-		},
-		{
-			name:           "Level_ERROR_ShouldNotLog",
-			logLevel:       ERROR,
-			shouldLog:      false,
-			testMessage:    "Error level should suppress debug messages",
-			expectedPrefix: "DEBUG: ",
-		},
+		// Debug
+		{"Debug", DEBUG, true, func(l *Logger, msg string) { l.Debug(msg) }, "DEBUG: ", "This is a debug message"},
+		{"Debug", INFO, false, func(l *Logger, msg string) { l.Debug(msg) }, "DEBUG: ", "This debug message should not appear"},
+		{"Debug", WARN, false, func(l *Logger, msg string) { l.Debug(msg) }, "DEBUG: ", "Another debug message that should not be logged"},
+		{"Debug", ERROR, false, func(l *Logger, msg string) { l.Debug(msg) }, "DEBUG: ", "Error level should suppress debug messages"},
+
+		// Info
+		{"Info", DEBUG, true, func(l *Logger, msg string) { l.Info(msg) }, "INFO: ", "This is an info message"},
+		{"Info", INFO, true, func(l *Logger, msg string) { l.Info(msg) }, "INFO: ", "This is another info message"},
+		{"Info", WARN, false, func(l *Logger, msg string) { l.Info(msg) }, "INFO: ", "This info message should not appear"},
+		{"Info", ERROR, false, func(l *Logger, msg string) { l.Info(msg) }, "INFO: ", "Error level should suppress info messages"},
+
+		// Warn
+		{"Warn", DEBUG, true, func(l *Logger, msg string) { l.Warn(msg) }, "WARN: ", "This is a warning message"},
+		{"Warn", INFO, true, func(l *Logger, msg string) { l.Warn(msg) }, "WARN: ", "This is another warning message"},
+		{"Warn", WARN, true, func(l *Logger, msg string) { l.Warn(msg) }, "WARN: ", "Warning level should log warnings"},
+		{"Warn", ERROR, false, func(l *Logger, msg string) { l.Warn(msg) }, "WARN: ", "Error level should suppress warn messages"},
+
+		// Error
+		{"Error", DEBUG, true, func(l *Logger, msg string) { l.Error(msg) }, "ERROR: ", "This is an error message"},
+		{"Error", INFO, true, func(l *Logger, msg string) { l.Error(msg) }, "ERROR: ", "This is another error message"},
+		{"Error", WARN, true, func(l *Logger, msg string) { l.Error(msg) }, "ERROR: ", "Warn level should allow error messages"},
+		{"Error", ERROR, true, func(l *Logger, msg string) { l.Error(msg) }, "ERROR: ", "Error level should log error messages"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var buf bytes.Buffer
-			logger := NewLogger(&buf, tt.logLevel)
-			logger.Debug(tt.testMessage)
+		testName := fmt.Sprintf("%s_%s", tt.method, tt.logLevel.String())
+		t.Run(testName, func(t *testing.T) {
+			logger, buf := createTestLogger(t, tt.logLevel)
+			tt.logFunc(logger, tt.message)
 
 			logOutput := buf.String()
 			if tt.shouldLog {
-				if !strings.Contains(logOutput, tt.expectedPrefix) || !strings.Contains(logOutput, tt.testMessage) {
-					t.Errorf("Expected log output to contain '%s' and message '%s'. Got: %s", tt.expectedPrefix, tt.testMessage, logOutput)
+				if !strings.Contains(logOutput, tt.expectedPrefix) || !strings.Contains(logOutput, tt.message) {
+					t.Errorf("Expected log output to contain '%s' and message '%s'. Got: %s", tt.expectedPrefix, tt.message, logOutput)
 				}
 			} else {
 				if strings.Contains(logOutput, tt.expectedPrefix) {
-					t.Errorf("Did not expect DEBUG log output when level is %v. Got: %s", tt.logLevel, logOutput)
+					t.Errorf("Did not expect log output with prefix '%s'. Got: %s", tt.expectedPrefix, logOutput)
 				}
 			}
 		})
 	}
 }
 
-func TestLogger_Info(t *testing.T) {
+// TestLoggerFormattedMethods tests the formatted logging methods of the Logger.
+func TestLoggerFormattedMethods(t *testing.T) {
 	tests := []struct {
-		name           string
+		method         string
 		logLevel       LogLevel
 		shouldLog      bool
-		testMessage    string
+		logFunc        func(*Logger, string, ...interface{})
 		expectedPrefix string
-	}{
-		{
-			name:           "Level_DEBUG_ShouldLog",
-			logLevel:       DEBUG,
-			shouldLog:      true,
-			testMessage:    "This is an info message",
-			expectedPrefix: "INFO: ",
-		},
-		{
-			name:           "Level_INFO_ShouldLog",
-			logLevel:       INFO,
-			shouldLog:      true,
-			testMessage:    "This is another info message",
-			expectedPrefix: "INFO: ",
-		},
-		{
-			name:           "Level_WARN_ShouldNotLog",
-			logLevel:       WARN,
-			shouldLog:      false,
-			testMessage:    "This info message should not appear",
-			expectedPrefix: "INFO: ",
-		},
-		{
-			name:           "Level_ERROR_ShouldNotLog",
-			logLevel:       ERROR,
-			shouldLog:      false,
-			testMessage:    "Error level should suppress info messages",
-			expectedPrefix: "INFO: ",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var buf bytes.Buffer
-			logger := NewLogger(&buf, tt.logLevel)
-			logger.Info(tt.testMessage)
-
-			logOutput := buf.String()
-			if tt.shouldLog {
-				if !strings.Contains(logOutput, tt.expectedPrefix) || !strings.Contains(logOutput, tt.testMessage) {
-					t.Errorf("Expected log output to contain '%s' and message '%s'. Got: %s", tt.expectedPrefix, tt.testMessage, logOutput)
-				}
-			} else {
-				if strings.Contains(logOutput, tt.expectedPrefix) {
-					t.Errorf("Did not expect INFO log output when level is %v. Got: %s", tt.logLevel, logOutput)
-				}
-			}
-		})
-	}
-}
-
-// TestLogger_Warn tests the Warn method of the Logger.
-func TestLogger_Warn(t *testing.T) {
-	tests := []struct {
-		name           string
-		logLevel       LogLevel
-		shouldLog      bool
-		testMessage    string
-		expectedPrefix string
-	}{
-		{
-			name:           "Level_DEBUG_ShouldLog",
-			logLevel:       DEBUG,
-			shouldLog:      true,
-			testMessage:    "This is a warning message",
-			expectedPrefix: "WARN: ",
-		},
-		{
-			name:           "Level_INFO_ShouldLog",
-			logLevel:       INFO,
-			shouldLog:      true,
-			testMessage:    "This is another warning message",
-			expectedPrefix: "WARN: ",
-		},
-		{
-			name:           "Level_WARN_ShouldLog",
-			logLevel:       WARN,
-			shouldLog:      true,
-			testMessage:    "Warning level should log warnings",
-			expectedPrefix: "WARN: ",
-		},
-		{
-			name:           "Level_ERROR_ShouldNotLog",
-			logLevel:       ERROR,
-			shouldLog:      false,
-			testMessage:    "Error level should suppress warn messages",
-			expectedPrefix: "WARN: ",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var buf bytes.Buffer
-			logger := NewLogger(&buf, tt.logLevel)
-			logger.Warn(tt.testMessage)
-
-			logOutput := buf.String()
-			if tt.shouldLog {
-				if !strings.Contains(logOutput, tt.expectedPrefix) || !strings.Contains(logOutput, tt.testMessage) {
-					t.Errorf("Expected log output to contain '%s' and message '%s'. Got: %s", tt.expectedPrefix, tt.testMessage, logOutput)
-				}
-			} else {
-				if strings.Contains(logOutput, tt.expectedPrefix) {
-					t.Errorf("Did not expect WARN log output when level is %v. Got: %s", tt.logLevel, logOutput)
-				}
-			}
-		})
-	}
-}
-
-// TestLogger_Error tests the Error method of the Logger.
-func TestLogger_Error(t *testing.T) {
-	tests := []struct {
-		name           string
-		logLevel       LogLevel
-		shouldLog      bool
-		testMessage    string
-		expectedPrefix string
-	}{
-		{
-			name:           "Level_DEBUG_ShouldLog",
-			logLevel:       DEBUG,
-			shouldLog:      true,
-			testMessage:    "This is an error message",
-			expectedPrefix: "ERROR: ",
-		},
-		{
-			name:           "Level_INFO_ShouldLog",
-			logLevel:       INFO,
-			shouldLog:      true,
-			testMessage:    "This is another error message",
-			expectedPrefix: "ERROR: ",
-		},
-		{
-			name:           "Level_WARN_ShouldLog",
-			logLevel:       WARN,
-			shouldLog:      true,
-			testMessage:    "Warn level should allow error messages",
-			expectedPrefix: "ERROR: ",
-		},
-		{
-			name:           "Level_ERROR_ShouldLog",
-			logLevel:       ERROR,
-			shouldLog:      true,
-			testMessage:    "Error level should log error messages",
-			expectedPrefix: "ERROR: ",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var buf bytes.Buffer
-			logger := NewLogger(&buf, tt.logLevel)
-			logger.Error(tt.testMessage)
-
-			logOutput := buf.String()
-			if tt.shouldLog {
-				if !strings.Contains(logOutput, tt.expectedPrefix) || !strings.Contains(logOutput, tt.testMessage) {
-					t.Errorf("Expected log output to contain '%s' and message '%s'. Got: %s", tt.expectedPrefix, tt.testMessage, logOutput)
-				}
-			} else {
-				if strings.Contains(logOutput, tt.expectedPrefix) {
-					t.Errorf("Did not expect ERROR log output when level is %v. Got: %s", tt.logLevel, logOutput)
-				}
-			}
-		})
-	}
-}
-
-// TestLogger_Debugf tests the Debugf method of the Logger.
-func TestLogger_Debugf(t *testing.T) {
-	tests := []struct {
-		name           string
-		logLevel       LogLevel
-		shouldLog      bool
 		format         string
 		args           []interface{}
-		expectedPrefix string
 	}{
-		{
-			name:           "Level_DEBUG_ShouldLog",
-			logLevel:       DEBUG,
-			shouldLog:      true,
-			format:         "Debugf message: %s",
-			args:           []interface{}{"test"},
-			expectedPrefix: "DEBUG: ",
-		},
-		{
-			name:           "Level_INFO_ShouldNotLog",
-			logLevel:       INFO,
-			shouldLog:      false,
-			format:         "This debugf message should not appear: %d",
-			args:           []interface{}{123},
-			expectedPrefix: "DEBUG: ",
-		},
-		{
-			name:           "Level_WARN_ShouldNotLog",
-			logLevel:       WARN,
-			shouldLog:      false,
-			format:         "Another debugf message: %f",
-			args:           []interface{}{3.14},
-			expectedPrefix: "DEBUG: ",
-		},
-		{
-			name:           "Level_ERROR_ShouldNotLog",
-			logLevel:       ERROR,
-			shouldLog:      false,
-			format:         "Error level should suppress debugf: %v",
-			args:           []interface{}{nil},
-			expectedPrefix: "DEBUG: ",
-		},
+		// Debugf
+		{"Debugf", DEBUG, true, func(l *Logger, fmtStr string, args ...interface{}) { l.Debugf(fmtStr, args...) }, "DEBUG: ", "Debugf message: %s", []interface{}{"test"}},
+		{"Debugf", INFO, false, func(l *Logger, fmtStr string, args ...interface{}) { l.Debugf(fmtStr, args...) }, "DEBUG: ", "This debugf message should not appear: %d", []interface{}{123}},
+		{"Debugf", WARN, false, func(l *Logger, fmtStr string, args ...interface{}) { l.Debugf(fmtStr, args...) }, "DEBUG: ", "Another debugf message: %f", []interface{}{3.14}},
+		{"Debugf", ERROR, false, func(l *Logger, fmtStr string, args ...interface{}) { l.Debugf(fmtStr, args...) }, "DEBUG: ", "Error level should suppress debugf: %v", []interface{}{nil}},
+
+		// Infof
+		{"Infof", DEBUG, true, func(l *Logger, fmtStr string, args ...interface{}) { l.Infof(fmtStr, args...) }, "INFO: ", "Infof message: %s", []interface{}{"test"}},
+		{"Infof", INFO, true, func(l *Logger, fmtStr string, args ...interface{}) { l.Infof(fmtStr, args...) }, "INFO: ", "Another Infof message: %d", []interface{}{456}},
+		{"Infof", WARN, false, func(l *Logger, fmtStr string, args ...interface{}) { l.Infof(fmtStr, args...) }, "INFO: ", "This Infof message should not appear: %f", []interface{}{6.28}},
+		{"Infof", ERROR, false, func(l *Logger, fmtStr string, args ...interface{}) { l.Infof(fmtStr, args...) }, "INFO: ", "Error level should suppress Infof: %v", []interface{}{nil}},
+
+		// Warnf
+		{"Warnf", DEBUG, true, func(l *Logger, fmtStr string, args ...interface{}) { l.Warnf(fmtStr, args...) }, "WARN: ", "Warnf message: %s", []interface{}{"test"}},
+		{"Warnf", INFO, true, func(l *Logger, fmtStr string, args ...interface{}) { l.Warnf(fmtStr, args...) }, "WARN: ", "Another Warnf message: %d", []interface{}{789}},
+		{"Warnf", WARN, true, func(l *Logger, fmtStr string, args ...interface{}) { l.Warnf(fmtStr, args...) }, "WARN: ", "Warn level should log Warnf messages: %f", []interface{}{9.42}},
+		{"Warnf", ERROR, false, func(l *Logger, fmtStr string, args ...interface{}) { l.Warnf(fmtStr, args...) }, "WARN: ", "Error level should suppress Warnf: %v", []interface{}{nil}},
+
+		// Errorf
+		{"Errorf", DEBUG, true, func(l *Logger, fmtStr string, args ...interface{}) { l.Errorf(fmtStr, args...) }, "ERROR: ", "Errorf message: %s", []interface{}{"test"}},
+		{"Errorf", INFO, true, func(l *Logger, fmtStr string, args ...interface{}) { l.Errorf(fmtStr, args...) }, "ERROR: ", "Another Errorf message: %d", []interface{}{101112}},
+		{"Errorf", WARN, true, func(l *Logger, fmtStr string, args ...interface{}) { l.Errorf(fmtStr, args...) }, "ERROR: ", "Warn level should log Errorf messages: %f", []interface{}{12.56}},
+		{"Errorf", ERROR, true, func(l *Logger, fmtStr string, args ...interface{}) { l.Errorf(fmtStr, args...) }, "ERROR: ", "Error level should log Errorf messages: %v", []interface{}{nil}},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var buf bytes.Buffer
-			logger := NewLogger(&buf, tt.logLevel)
-			logger.Debugf(tt.format, tt.args...)
+		testName := fmt.Sprintf("%sf_%s", tt.method, tt.logLevel)
+		t.Run(testName, func(t *testing.T) {
+			logger, buf := createTestLogger(t, tt.logLevel)
+			logAndVerify(t, logger, buf, tt.logFunc, tt.shouldLog, tt.expectedPrefix, tt.format, tt.args...)
 
 			logOutput := buf.String()
 			if tt.shouldLog {
@@ -431,10 +289,8 @@ func TestLogger_Debugf(t *testing.T) {
 				if !strings.Contains(logOutput, tt.expectedPrefix) || !strings.Contains(logOutput, expectedMessage) {
 					t.Errorf("Expected log output to contain '%s' and message '%s'. Got: %s", tt.expectedPrefix, expectedMessage, logOutput)
 				}
-			} else {
-				if strings.Contains(logOutput, tt.expectedPrefix) {
-					t.Errorf("Did not expect DEBUGf log output when level is %v. Got: %s", tt.logLevel, logOutput)
-				}
+			} else if strings.Contains(logOutput, tt.expectedPrefix) {
+				t.Errorf("Did not expect %sf log output when level is %v. Got: %s", tt.method, tt.logLevel, logOutput)
 			}
 		})
 	}
@@ -496,10 +352,8 @@ func TestLogger_Infof(t *testing.T) {
 				if !strings.Contains(logOutput, tt.expectedPrefix) || !strings.Contains(logOutput, expectedMessage) {
 					t.Errorf("Expected log output to contain '%s' and message '%s'. Got: %s", tt.expectedPrefix, expectedMessage, logOutput)
 				}
-			} else {
-				if strings.Contains(logOutput, tt.expectedPrefix) {
-					t.Errorf("Did not expect INFOf log output when level is %v. Got: %s", tt.logLevel, logOutput)
-				}
+			} else if strings.Contains(logOutput, tt.expectedPrefix) {
+				t.Errorf("Did not expect INFOf log output when level is %v. Got: %s", tt.logLevel, logOutput)
 			}
 		})
 	}
@@ -561,10 +415,8 @@ func TestLogger_Warnf(t *testing.T) {
 				if !strings.Contains(logOutput, tt.expectedPrefix) || !strings.Contains(logOutput, expectedMessage) {
 					t.Errorf("Expected log output to contain '%s' and message '%s'. Got: %s", tt.expectedPrefix, expectedMessage, logOutput)
 				}
-			} else {
-				if strings.Contains(logOutput, tt.expectedPrefix) {
-					t.Errorf("Did not expect WARNf log output when level is %v. Got: %s", tt.logLevel, logOutput)
-				}
+			} else if strings.Contains(logOutput, tt.expectedPrefix) {
+				t.Errorf("Did not expect WARNf log output when level is %v. Got: %s", tt.logLevel, logOutput)
 			}
 		})
 	}
@@ -626,10 +478,8 @@ func TestLogger_Errorf(t *testing.T) {
 				if !strings.Contains(logOutput, tt.expectedPrefix) || !strings.Contains(logOutput, expectedMessage) {
 					t.Errorf("Expected log output to contain '%s' and message '%s'. Got: %s", tt.expectedPrefix, expectedMessage, logOutput)
 				}
-			} else {
-				if strings.Contains(logOutput, tt.expectedPrefix) {
-					t.Errorf("Did not expect ERRORf log output when level is %v. Got: %s", tt.logLevel, logOutput)
-				}
+			} else if strings.Contains(logOutput, tt.expectedPrefix) {
+				t.Errorf("Did not expect ERRORf log output when level is %v. Got: %s", tt.logLevel, logOutput)
 			}
 		})
 	}

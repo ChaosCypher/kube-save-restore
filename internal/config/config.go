@@ -40,7 +40,8 @@ func ParseFlags() *Config {
 
 // validateConfig validates the configuration values.
 func validateConfig(config *Config) error {
-	if config.Mode != "backup" && config.Mode != "restore" {
+	validModes := map[string]bool{"backup": true, "restore": true}
+	if !validModes[config.Mode] {
 		return fmt.Errorf("invalid mode: %s. Use 'backup' or 'restore'", config.Mode)
 	}
 	if config.Mode == "restore" && config.RestoreDir == "" {

@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"context"
-	"k8s-backup-restore/internal/backup"
-	"k8s-backup-restore/internal/config"
-	"k8s-backup-restore/internal/kubernetes"
-	"k8s-backup-restore/internal/restore"
-	"k8s-backup-restore/internal/utils"
+
+	"github.com/chaoscypher/k8s-backup-restore/internal/backup"
+	"github.com/chaoscypher/k8s-backup-restore/internal/config"
+	"github.com/chaoscypher/k8s-backup-restore/internal/kubernetes"
+	"github.com/chaoscypher/k8s-backup-restore/internal/restore"
+	"github.com/chaoscypher/k8s-backup-restore/internal/utils"
 )
 
 // main is the entry point of the application.
@@ -63,7 +64,7 @@ func handleBackup(config *config.Config, k8sClient *kubernetes.Client, logger *u
 	if config.BackupDir == "" {
 		config.BackupDir = filepath.Join(".", fmt.Sprintf("k8s-backup-%s", time.Now().Format("20060102-150405")))
 	}
-	backupManager := backup.NewBackupManager(k8sClient, config.BackupDir, config.DryRun, logger)
+	backupManager := backup.NewManager(k8sClient, config.BackupDir, config.DryRun, logger)
 	return backupManager.PerformBackup(context.Background())
 }
 
@@ -72,6 +73,6 @@ func handleRestore(config *config.Config, k8sClient *kubernetes.Client, logger *
 	if config.RestoreDir == "" {
 		return fmt.Errorf("--restore-dir flag is required for restore mode")
 	}
-	restoreManager := restore.NewRestoreManager()
+	restoreManager := restore.NewManager()
 	return restoreManager.PerformRestore(k8sClient, config.RestoreDir, config.DryRun, logger)
 }

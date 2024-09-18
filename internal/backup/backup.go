@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"k8s-backup-restore/internal/utils"
+	"github.com/chaoscypher/k8s-backup-restore/internal/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -24,7 +24,7 @@ type KubernetesClient interface {
 	ListSecrets(ctx context.Context, namespace string) (*corev1.SecretList, error)
 }
 
-type BackupManager struct {
+type Manager struct {
 	client    KubernetesClient
 	backupDir string
 	dryRun    bool
@@ -32,8 +32,8 @@ type BackupManager struct {
 }
 
 // NewBackupManager creates a new BackupManager instance.
-func NewBackupManager(client KubernetesClient, backupDir string, dryRun bool, logger *utils.Logger) *BackupManager {
-	return &BackupManager{
+func NewManager(client KubernetesClient, backupDir string, dryRun bool, logger *utils.Logger) *Manager {
+	return &Manager{
 		client:    client,
 		backupDir: backupDir,
 		dryRun:    dryRun,
@@ -42,7 +42,7 @@ func NewBackupManager(client KubernetesClient, backupDir string, dryRun bool, lo
 }
 
 // PerformBackup initiates the backup process for all namespaces.
-func (bm *BackupManager) PerformBackup(ctx context.Context) error {
+func (bm *Manager) PerformBackup(ctx context.Context) error {
 	bm.logger.Info("Starting backup operation")
 
 	namespaces, err := bm.client.ListNamespaces(ctx)
@@ -74,13 +74,32 @@ func (bm *BackupManager) PerformBackup(ctx context.Context) error {
 }
 
 // countResources counts the total number of resources across all namespaces.
-func (bm *BackupManager) countResources(ctx context.Context, namespaces []string) int {
+func (bm *Manager) countResources(ctx context.Context, namespaces []string) int {
 	total := 0
 	for _, ns := range namespaces {
-		deployments, _ := bm.client.ListDeployments(ctx, ns)
-		services, _ := bm.client.ListServices(ctx, ns)
-		configMaps, _ := bm.client.ListConfigMaps(ctx, ns)
-		secrets, _ := bm.client.ListSecrets(ctx, ns)
+		deployments, err := bm.client.ListDeployments(ctx, ns)
+		if err != nil {
+			bm.logger.Errorf("Error listing deployments in namespace %s: %v", ns, err)
+			continue
+		}
+
+		services, err := bm.client.ListServices(ctx, ns)
+		if err != nil {
+			bm.logger.Errorf("Error listing services in namespace %s: %v", ns, err)
+			continue
+		}
+
+		configMaps, err := bm.client.ListConfigMaps(ctx, ns)
+		if err != nil {
+			bm.logger.Errorf("Error listing configmaps in namespace %s: %v", ns, err)
+			continue
+		}
+
+		secrets, err := bm.client.ListSecrets(ctx, ns)
+		if err != nil {
+			bm.logger.Errorf("Error listing secrets in namespace %s: %v", ns, err)
+			continue
+		}
 
 		total += len(deployments.Items) + len(services.Items) + len(configMaps.Items) + len(secrets.Items)
 	}
@@ -88,7 +107,7 @@ func (bm *BackupManager) countResources(ctx context.Context, namespaces []string
 }
 
 // worker processes backup tasks from the tasks channel.
-func (bm *BackupManager) worker(ctx context.Context, wg *sync.WaitGroup, tasks <-chan backupTask) {
+func (bm *Manager) worker(ctx context.Context, wg *sync.WaitGroup, tasks <-chan backupTask) {
 	defer wg.Done()
 	for task := range tasks {
 		if err := bm.backupResource(ctx, task.resourceType, task.namespace); err != nil {
@@ -98,7 +117,7 @@ func (bm *BackupManager) worker(ctx context.Context, wg *sync.WaitGroup, tasks <
 }
 
 // enqueueTasks adds backup tasks for each resource type in each namespace to the tasks channel.
-func (bm *BackupManager) enqueueTasks(namespaces []string, tasks chan<- backupTask) {
+func (bm *Manager) enqueueTasks(namespaces []string, tasks chan<- backupTask) {
 	for _, ns := range namespaces {
 		tasks <- backupTask{resourceType: "deployments", namespace: ns}
 		tasks <- backupTask{resourceType: "services", namespace: ns}
@@ -108,7 +127,7 @@ func (bm *BackupManager) enqueueTasks(namespaces []string, tasks chan<- backupTa
 }
 
 // logCompletionMessage logs a message indicating the completion of the backup process.
-func (bm *BackupManager) logCompletionMessage(totalResources int) {
+func (bm *Manager) logCompletionMessage(totalResources int) {
 	if bm.dryRun {
 		bm.logger.Infof("Dry run completed. %d resources would be backed up to: %s", totalResources, bm.backupDir)
 	} else {
@@ -122,7 +141,7 @@ type backupTask struct {
 }
 
 // backupResource backs up a specific type of resource in a given namespace.
-func (bm *BackupManager) backupResource(ctx context.Context, resourceType, namespace string) error {
+func (bm *Manager) backupResource(ctx context.Context, resourceType, namespace string) error {
 	var err error
 	switch resourceType {
 	case "deployments":
@@ -140,7 +159,7 @@ func (bm *BackupManager) backupResource(ctx context.Context, resourceType, names
 }
 
 // backupDeployments backs up all deployments in a given namespace.
-func (bm *BackupManager) backupDeployments(ctx context.Context, namespace string) error {
+func (bm *Manager) backupDeployments(ctx context.Context, namespace string) error {
 	deployments, err := bm.client.ListDeployments(ctx, namespace)
 	if err != nil {
 		return fmt.Errorf("error listing deployments in namespace %s: %v", namespace, err)
@@ -161,7 +180,7 @@ func (bm *BackupManager) backupDeployments(ctx context.Context, namespace string
 }
 
 // backupServices backs up all services in a given namespace.
-func (bm *BackupManager) backupServices(ctx context.Context, namespace string) error {
+func (bm *Manager) backupServices(ctx context.Context, namespace string) error {
 	services, err := bm.client.ListServices(ctx, namespace)
 	if err != nil {
 		return fmt.Errorf("error listing services in namespace %s: %v", namespace, err)
@@ -182,7 +201,7 @@ func (bm *BackupManager) backupServices(ctx context.Context, namespace string) e
 }
 
 // backupConfigMaps backs up all configmaps in a given namespace.
-func (bm *BackupManager) backupConfigMaps(ctx context.Context, namespace string) error {
+func (bm *Manager) backupConfigMaps(ctx context.Context, namespace string) error {
 	configMaps, err := bm.client.ListConfigMaps(ctx, namespace)
 	if err != nil {
 		return fmt.Errorf("error listing configmaps in namespace %s: %v", namespace, err)
@@ -203,7 +222,7 @@ func (bm *BackupManager) backupConfigMaps(ctx context.Context, namespace string)
 }
 
 // backupSecrets backs up all secrets in a given namespace.
-func (bm *BackupManager) backupSecrets(ctx context.Context, namespace string) error {
+func (bm *Manager) backupSecrets(ctx context.Context, namespace string) error {
 	secrets, err := bm.client.ListSecrets(ctx, namespace)
 	if err != nil {
 		return fmt.Errorf("error listing secrets in namespace %s: %v", namespace, err)
@@ -224,7 +243,7 @@ func (bm *BackupManager) backupSecrets(ctx context.Context, namespace string) er
 }
 
 // saveResource saves a resource to a file in JSON format.
-func (bm *BackupManager) saveResource(resource interface{}, kind, filename string) error {
+func (bm *Manager) saveResource(resource interface{}, kind, filename string) error {
 	wrapper := struct {
 		Kind     string      `json:"kind"`
 		Resource interface{} `json:"resource"`
@@ -242,7 +261,7 @@ func (bm *BackupManager) saveResource(resource interface{}, kind, filename strin
 		return fmt.Errorf("error creating directory: %v", err)
 	}
 
-	if err := os.WriteFile(filename, data, 0644); err != nil {
+	if err := os.WriteFile(filename, data, 0600); err != nil {
 		return fmt.Errorf("error writing file: %v", err)
 	}
 

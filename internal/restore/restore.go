@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"k8s-backup-restore/internal/kubernetes"
-	"k8s-backup-restore/internal/utils"
+	"github.com/chaoscypher/k8s-backup-restore/internal/kubernetes"
+	"github.com/chaoscypher/k8s-backup-restore/internal/utils"
 
 	"context"
 
@@ -20,16 +20,16 @@ import (
 
 const maxConcurrency = 10
 
-type RestoreManager struct{}
+type Manager struct{}
 
 // NewRestoreManager creates a new instance of RestoreManager.
-func NewRestoreManager() *RestoreManager {
-	return &RestoreManager{}
+func NewManager() *Manager {
+	return &Manager{}
 }
 
 // PerformRestore performs the restore operation by reading resource files from the specified directory
 // and applying them to the Kubernetes cluster. If dryRun is true, no changes will be made.
-func (rm *RestoreManager) PerformRestore(client *kubernetes.Client, restoreDir string, dryRun bool, logger *utils.Logger) error {
+func (rm *Manager) PerformRestore(client *kubernetes.Client, restoreDir string, dryRun bool, logger *utils.Logger) error {
 	logger.Info("Starting restore operation")
 
 	files, err := getResourceFiles(restoreDir)
@@ -74,7 +74,7 @@ func (rm *RestoreManager) PerformRestore(client *kubernetes.Client, restoreDir s
 }
 
 // RestoreResource restores a single resource from the specified file. If dryRun is true, no changes will be made.
-func (rm *RestoreManager) RestoreResource(client *kubernetes.Client, filename string, dryRun bool, logger *utils.Logger) error {
+func (rm *Manager) RestoreResource(client *kubernetes.Client, filename string, dryRun bool, logger *utils.Logger) error {
 	logger.Debugf("Restoring resource from file: %s", filename)
 
 	data, err := os.ReadFile(filename)

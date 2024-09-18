@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"k8s-backup-restore/internal/config"
-	"k8s-backup-restore/internal/utils"
+	"github.com/chaoscypher/k8s-backup-restore/internal/config"
+	"github.com/chaoscypher/k8s-backup-restore/internal/utils"
 )
 
 func TestGetKubeconfigPath(t *testing.T) {

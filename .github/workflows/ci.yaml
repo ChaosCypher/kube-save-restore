@@ -7,9 +7,21 @@ on:
       - edited
       - synchronize
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
 jobs:
   lint:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: read
+      statuses: write
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -19,19 +31,23 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
-
-      - name: Install Dependencies
-        shell: bash
-        run: go mod tidy
+          go-version: "1.23.1"
 
       - name: Run SuperLinter
         uses: github/super-linter/slim@v7
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VALIDATE_ALL_CODEBASE: false
           DEFAULT_BRANCH: main
-          VALIDATE_GO: true
+          VALIDATE_JSCPD: false
+          # These are covered by golangci-lint
+          VALIDATE_GO: false
+          VALIDATE_GO_MODULES: false
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
 
   format:
     runs-on: ubuntu-latest
@@ -42,7 +58,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version: "1.23.1"
 
       - name: Check Code Formatting
         shell: bash
@@ -63,19 +79,51 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version: "1.23.1"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
       - name: Install Dependencies
         shell: bash
-        run: go mod tidy
+        run: go mod download
 
-      - name: Run Unit Tests
-        shell: bash
-        run: go test -v ./...
+      - name: Run Tests
+        run: |
+          go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
-      - name: Generate Coverage Report
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.txt
+
+  static-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.1"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Run Static Analysis
         shell: bash
-        run: go test -cover ./...
+        run: |
+          go vet ./...
 
   integration-tests:
     runs-on: ubuntu-latest
@@ -86,11 +134,18 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version: "1.23.1"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
       - name: Install Dependencies
         shell: bash
-        run: go mod tidy
+        run: go mod download
 
       - name: Setup Kubectl
         uses: azure/setup-kubectl@v4
@@ -102,4 +157,4 @@ jobs:
         shell: bash
         run: |
           export TEST_KUBECONFIG=~/.kube/config
-          go test ./internal/integration -v
+          go test -tags=integration -v ./internal/integration

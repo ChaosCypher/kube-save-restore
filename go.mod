@@ -1,6 +1,6 @@
-module k8s-backup-restore
+module github.com/chaoscypher/k8s-backup-restore
 
-go 1.22.1
+go 1.23.1
 
 require (
 	k8s.io/api v0.31.1
