@@ -1,3 +1,5 @@
+//go:build integration
+
 package integration
 
 import (
@@ -6,97 +8,156 @@ import (
 	"path/filepath"
 	"testing"
 
-	"k8s-backup-restore/internal/backup"
-	"k8s-backup-restore/internal/config"
-	"k8s-backup-restore/internal/kubernetes"
-	"k8s-backup-restore/internal/restore"
-	"k8s-backup-restore/internal/utils"
+	"github.com/chaoscypher/k8s-backup-restore/internal/backup"
+	"github.com/chaoscypher/k8s-backup-restore/internal/config"
+	"github.com/chaoscypher/k8s-backup-restore/internal/kubernetes"
+	"github.com/chaoscypher/k8s-backup-restore/internal/restore"
+	"github.com/chaoscypher/k8s-backup-restore/internal/utils"
 )
 
 // TestRunBackup tests the backup functionality of the application.
 func TestRunBackup(t *testing.T) {
-	// Setup test configuration
-	testConfig := &config.Config{
-		Mode:       "backup",
-		BackupDir:  filepath.Join(os.TempDir(), "k8s-backup-test"),
-		KubeConfig: getTestKubeconfig(t),
-		Context:    "test-context",
-		DryRun:     false,
+	testCases := []struct {
+		name   string
+		dryRun bool
+	}{
+		{
+			name:   "Dry Run Backup",
+			dryRun: true,
+		},
+		{
+			name:   "Actual Backup",
+			dryRun: false,
+		},
 	}
 
-	// Ensure backup directory is clean
-	defer os.RemoveAll(testConfig.BackupDir)
+	for _, tc := range testCases {
+		tc := tc // capture range variable
+		t.Run(tc.name, func(t *testing.T) {
+			// Setup test configuration
+			testConfig := &config.Config{
+				Mode:       "backup",
+				BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
+				KubeConfig: getTestKubeconfig(t),
+				Context:    "minikube",
+				DryRun:     tc.dryRun,
+			}
 
-	// Setup logger
-	logger := utils.SetupLogger(testConfig)
+			// Setup logger
+			logger := utils.SetupLogger(testConfig)
 
-	// Create Kubernetes client
-	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context)
-	if err != nil {
-		t.Fatalf("Failed to create Kubernetes client: %v", err)
-	}
+			// Create Kubernetes client
+			kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context)
+			if err != nil {
+				t.Fatalf("Failed to create Kubernetes client: %v", err)
+			}
 
-	// Execute backup
-	err = backup.NewBackupManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, logger).PerformBackup(context.Background())
-	if err != nil {
-		t.Fatalf("Backup failed: %v", err)
-	}
+			// Execute backup
+			err = backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, logger).PerformBackup(context.Background())
+			if err != nil {
+				t.Fatalf("Backup failed: %v", err)
+			}
 
-	// Verify backup directory exists and is not empty
-	info, err := os.Stat(testConfig.BackupDir)
-	if err != nil {
-		t.Fatalf("Backup directory does not exist: %v", err)
-	}
-	if !info.IsDir() {
-		t.Fatalf("Backup path is not a directory")
-	}
+			if !tc.dryRun {
+				// Verify backup directory exists and is not empty
+				info, err := os.Stat(testConfig.BackupDir)
+				if err != nil {
+					t.Fatalf("Backup directory does not exist: %v", err)
+				}
+				if !info.IsDir() {
+					t.Fatalf("Backup path is not a directory")
+				}
 
-	dirEntries, err := os.ReadDir(testConfig.BackupDir)
-	if err != nil {
-		t.Fatalf("Failed to read backup directory: %v", err)
-	}
-	if len(dirEntries) == 0 {
-		t.Fatalf("Backup directory is empty")
+				dirEntries, err := os.ReadDir(testConfig.BackupDir)
+				if err != nil {
+					t.Fatalf("Failed to read backup directory: %v", err)
+				}
+				if len(dirEntries) == 0 {
+					t.Fatalf("Backup directory is empty")
+				}
+			} else {
+				// For dry run, ensure that backup directory is not created or empty
+				info, err := os.Stat(testConfig.BackupDir)
+				if err == nil {
+					if info.IsDir() {
+						dirEntries, err := os.ReadDir(testConfig.BackupDir)
+						if err != nil {
+							t.Fatalf("Failed to read backup directory: %v", err)
+						}
+						if len(dirEntries) != 0 {
+							t.Fatalf("Backup directory should be empty for dry run")
+						}
+					}
+				} else if !os.IsNotExist(err) {
+					t.Fatalf("Error checking backup directory: %v", err)
+				}
+			}
+		})
 	}
 }
 
 // TestRunRestore tests the restore functionality of the application.
 func TestRunRestore(t *testing.T) {
-	// Setup test configuration
-	testConfig := &config.Config{
-		Mode:       "restore",
-		RestoreDir: filepath.Join(os.TempDir(), "k8s-restore-test"),
-		KubeConfig: getTestKubeconfig(t),
-		Context:    "test-context",
-		DryRun:     false,
+	testCases := []struct {
+		name   string
+		dryRun bool
+	}{
+		{
+			name:   "Dry Run Restore",
+			dryRun: true,
+		},
+		{
+			name:   "Actual Restore",
+			dryRun: false,
+		},
 	}
 
-	// Ensure restore directory exists with necessary backup files
-	err := os.MkdirAll(testConfig.RestoreDir, 0755)
-	if err != nil {
-		t.Fatalf("Failed to create restore directory: %v", err)
-	}
-	// Simulate backup files (this should be replaced with actual backup data)
-	testBackupFile := filepath.Join(testConfig.RestoreDir, "backup.json")
-	err = os.WriteFile(testBackupFile, []byte(`{"dummy": "data"}`), 0644)
-	if err != nil {
-		t.Fatalf("Failed to create dummy backup file: %v", err)
-	}
-	defer os.RemoveAll(testConfig.RestoreDir)
+	for _, tc := range testCases {
+		tc := tc // capture range variable
+		t.Run(tc.name, func(t *testing.T) {
+			// Setup test configuration
+			testConfig := &config.Config{
+				Mode:       "restore",
+				RestoreDir: filepath.Join(os.TempDir(), "kube-save-restore-test"),
+				KubeConfig: getTestKubeconfig(t),
+				Context:    "minikube",
+				DryRun:     tc.dryRun,
+			}
 
-	// Setup logger
-	logger := utils.SetupLogger(testConfig)
+			// Setup logger
+			logger := utils.SetupLogger(testConfig)
 
-	// Create Kubernetes client
-	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context)
-	if err != nil {
-		t.Fatalf("Failed to create Kubernetes client: %v", err)
-	}
+			// Create Kubernetes client
+			kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context)
+			if err != nil {
+				t.Fatalf("Failed to create Kubernetes client: %v", err)
+			}
 
-	// Execute restore
-	err = restore.NewRestoreManager().PerformRestore(kubeClient, testConfig.RestoreDir, testConfig.DryRun, logger)
-	if err != nil {
-		t.Fatalf("Restore failed: %v", err)
+			// Execute restore
+			err = restore.NewManager().PerformRestore(kubeClient, testConfig.RestoreDir, testConfig.DryRun, logger)
+			if err != nil {
+				t.Fatalf("Restore failed: %v", err)
+			}
+
+			if !tc.dryRun {
+				// Verify restore directory exists and contains expected files
+				info, err := os.Stat(testConfig.RestoreDir)
+				if err != nil {
+					t.Fatalf("Restore directory does not exist: %v", err)
+				}
+				if !info.IsDir() {
+					t.Fatalf("Restore path is not a directory")
+				}
+
+				dirEntries, err := os.ReadDir(testConfig.RestoreDir)
+				if err != nil {
+					t.Fatalf("Failed to read restore directory: %v", err)
+				}
+				if len(dirEntries) == 0 {
+					t.Fatalf("Restore directory is empty")
+				}
+			}
+		})
 	}
 }
 
