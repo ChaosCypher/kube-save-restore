@@ -11,14 +11,14 @@ import (
 	"github.com/chaoscypher/k8s-backup-restore/internal/backup"
 	"github.com/chaoscypher/k8s-backup-restore/internal/config"
 	"github.com/chaoscypher/k8s-backup-restore/internal/kubernetes"
+	"github.com/chaoscypher/k8s-backup-restore/internal/logger"
 	"github.com/chaoscypher/k8s-backup-restore/internal/restore"
-	"github.com/chaoscypher/k8s-backup-restore/internal/utils"
 )
 
 // main is the entry point of the application.
 func main() {
 	config := config.ParseFlags()
-	logger := utils.SetupLogger(config)
+	logger := logger.SetupLogger(config)
 
 	if err := run(config, logger); err != nil {
 		logger.Error("Error:", err)
@@ -27,7 +27,7 @@ func main() {
 }
 
 // run executes the main logic based on the provided configuration and logger.
-func run(config *config.Config, logger *utils.Logger) error {
+func run(config *config.Config, logger logger.LoggerInterface) error {
 	kubeconfigPath := getKubeconfigPath(config.KubeConfig, logger)
 
 	k8sClient, err := kubernetes.NewClient(kubeconfigPath, config.Context)
@@ -47,7 +47,7 @@ func run(config *config.Config, logger *utils.Logger) error {
 
 // getKubeconfigPath returns the path to the kubeconfig file.
 // If the kubeconfig path is not provided, it defaults to the user's home directory.
-func getKubeconfigPath(kubeconfig string, logger *utils.Logger) string {
+func getKubeconfigPath(kubeconfig string, logger logger.LoggerInterface) string {
 	if kubeconfig != "" {
 		return kubeconfig
 	}
@@ -60,7 +60,7 @@ func getKubeconfigPath(kubeconfig string, logger *utils.Logger) string {
 }
 
 // handleBackup performs the backup operation using the provided configuration and Kubernetes client.
-func handleBackup(config *config.Config, k8sClient *kubernetes.Client, logger *utils.Logger) error {
+func handleBackup(config *config.Config, k8sClient *kubernetes.Client, logger logger.LoggerInterface) error {
 	if config.BackupDir == "" {
 		config.BackupDir = filepath.Join(".", fmt.Sprintf("k8s-backup-%s", time.Now().Format("20060102-150405")))
 	}
@@ -69,10 +69,10 @@ func handleBackup(config *config.Config, k8sClient *kubernetes.Client, logger *u
 }
 
 // handleRestore performs the restore operation using the provided configuration and Kubernetes client.
-func handleRestore(config *config.Config, k8sClient *kubernetes.Client, logger *utils.Logger) error {
+func handleRestore(config *config.Config, k8sClient *kubernetes.Client, logger logger.LoggerInterface) error {
 	if config.RestoreDir == "" {
 		return fmt.Errorf("--restore-dir flag is required for restore mode")
 	}
-	restoreManager := restore.NewManager()
-	return restoreManager.PerformRestore(k8sClient, config.RestoreDir, config.DryRun, logger)
+	restoreManager := restore.NewManager(k8sClient, logger)
+	return restoreManager.PerformRestore(config.RestoreDir, config.DryRun)
 }

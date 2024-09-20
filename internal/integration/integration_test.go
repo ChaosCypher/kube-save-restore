@@ -11,8 +11,8 @@ import (
 	"github.com/chaoscypher/k8s-backup-restore/internal/backup"
 	"github.com/chaoscypher/k8s-backup-restore/internal/config"
 	"github.com/chaoscypher/k8s-backup-restore/internal/kubernetes"
+	"github.com/chaoscypher/k8s-backup-restore/internal/logger"
 	"github.com/chaoscypher/k8s-backup-restore/internal/restore"
-	"github.com/chaoscypher/k8s-backup-restore/internal/utils"
 )
 
 // TestRunBackup tests the backup functionality of the application.
@@ -44,7 +44,7 @@ func TestRunBackup(t *testing.T) {
 			}
 
 			// Setup logger
-			logger := utils.SetupLogger(testConfig)
+			logger := logger.SetupLogger(testConfig)
 
 			// Create Kubernetes client
 			kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context)
@@ -125,7 +125,7 @@ func TestRunRestore(t *testing.T) {
 			}
 
 			// Setup logger
-			logger := utils.SetupLogger(testConfig)
+			logger := logger.SetupLogger(testConfig)
 
 			// Create Kubernetes client
 			kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context)
@@ -134,7 +134,8 @@ func TestRunRestore(t *testing.T) {
 			}
 
 			// Execute restore
-			err = restore.NewManager().PerformRestore(kubeClient, testConfig.RestoreDir, testConfig.DryRun, logger)
+			restoreManager := restore.NewManager(kubeClient, logger)
+			err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
 			if err != nil {
 				t.Fatalf("Restore failed: %v", err)
 			}
