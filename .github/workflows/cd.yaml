@@ -39,6 +39,21 @@ jobs:
             }
             core.setOutput('pr_number', pr_number)
 
+      - name: Get the CI Workflow ID
+        id: get_ci_workflow_id
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const workflows = await github.rest.actions.listRepoWorkflows({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            const ciWorkflow = workflows.data.workflows.find(wf => wf.name === 'CI');
+            if (!ciWorkflow) {
+              throw new Error('CI workflow not found.');
+            }
+            core.setOutput('workflow_id', ciWorkflow.id);
+
       - name: Get the workflow run ID
         id: get_run_id
         uses: actions/github-script@v7
@@ -58,19 +73,23 @@ jobs:
 
             const headSha = pullRequest.head.sha;
 
-            // List workflow runs for the repository
-            const runs = await github.rest.actions.listWorkflowRunsForRepo({
+            // Get CI Workflow ID from previous step
+            const workflowId = '${{ steps.get_ci_workflow_id.outputs.workflow_id }}';
+
+            // List workflow runs for the CI workflow
+            const runs = await github.rest.actions.listWorkflowRuns({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              per_page: 100,
+              workflow_id: workflowId,
+              head_sha: headSha,
               status: 'completed'
             });
 
-            // Find the workflow run that matches the head SHA
-            const matchingRun = runs.data.workflow_runs.find(run => run.head_sha === headSha);
+            // Find the latest matching run
+            const matchingRun = runs.data.workflow_runs[0];
 
             if (!matchingRun) {
-              throw new Error('No workflow runs found for the PR head SHA.');
+              throw new Error('No CI workflow run found for the PR head SHA.');
             }
 
             // Log available artifacts for debugging
