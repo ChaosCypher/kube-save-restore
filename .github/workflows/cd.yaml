@@ -1,0 +1,120 @@
+name: CD
+
+on:
+  pull_request:
+    types:
+      - closed
+
+permissions: {}
+
+jobs:
+  release:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      actions: read
+
+    strategy:
+      matrix:
+        os: [linux, darwin, windows]
+        arch: [amd64, arm64]
+        exclude:
+          - os: windows
+            arch: arm64
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Get the pull request number
+        id: get_pr_number
+        uses: actions/github-script@v7
+        with:
+          script: |
+            return { pr_number: context.payload.pull_request.number }
+
+      - name: Get the workflow run ID
+        id: get_run_id
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = ${{ steps.get_pr_number.outputs.pr_number }};
+            const runs = await github.actions.listWorkflowRunsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              branch: 'main',
+              event: 'pull_request',
+              status: 'completed',
+              per_page: 1
+            });
+            const runId = runs.data.workflow_runs[0].id;
+            return { run_id: runId };
+
+      - name: Download Binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: k8s-backup-restore-binaries-${{ matrix.os }}-${{ matrix.arch }}
+          path: ./binaries/${{ matrix.os }}/${{ matrix.arch }}
+          run-id: ${{ steps.get_run_id.outputs.run_id }}
+
+      - name: Create Release
+        id: create_release
+        uses: actions/github-script@v7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          script: |
+            const core = require('@actions/core');
+            const github = require('@actions/github');
+
+            const getNextVersion = (currentVersion) => {
+              const versionParts = currentVersion.replace('v', '').split('.');
+              const major = parseInt(versionParts[0]);
+              const minor = parseInt(versionParts[1]);
+              const patch = parseInt(versionParts[2]) + 1;
+              return `v${major}.${minor}.${patch}`;
+            };
+
+            const { data: latestRelease } = await github.repos.getLatestRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+
+            const nextVersion = getNextVersion(latestRelease.tag_name);
+
+            const { data: release } = await github.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: nextVersion,
+              name: `Release ${nextVersion}`,
+              body: `Release ${nextVersion} of k8s-backup-restore.`,
+              draft: false,
+              prerelease: false
+            });
+
+            return { upload_url: release.upload_url, tag_name: nextVersion };
+
+      - name: Upload Binary
+        uses: actions/github-script@v7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          script: |
+            const fs = require('fs');
+            const os = '${{ matrix.os }}';
+            const arch = '${{ matrix.arch }}';
+            const path = `./binaries/${os}/${arch}/k8s-backup-restore-${os}-${arch}`;
+            const content = fs.readFileSync(path);
+            await github.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: ${{ steps.create_release.outputs.upload_url }},
+              name: `k8s-backup-restore-${os}-${arch}`,
+              data: content,
+              headers: {
+                'content-type': 'application/octet-stream',
+                'content-length': content.length
+              }
+            });

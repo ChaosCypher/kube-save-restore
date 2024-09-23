@@ -14,7 +14,7 @@ concurrency:
 permissions: {}
 
 jobs:
-  lint:
+  superlinter:
     runs-on: ubuntu-latest
 
     permissions:
@@ -33,6 +33,16 @@ jobs:
         with:
           go-version: "1.23.1"
 
+      - name: Cache Go Modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
       - name: Run SuperLinter
         uses: github/super-linter/slim@v7
         env:
@@ -43,14 +53,11 @@ jobs:
           VALIDATE_GO: false
           VALIDATE_GO_MODULES: false
 
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
-          args: --timeout=5m
-
   format:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -70,8 +77,12 @@ jobs:
             exit 1
           fi
 
-  unit-tests:
+  golangci-lint:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -80,6 +91,78 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.23.1"
+
+      - name: Cache Go Modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+  static-analysis:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.1"
+
+      - name: Cache Go Modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Run Static Analysis
+        shell: bash
+        run: |
+          go vet ./...
+
+  unit-tests:
+    needs: [golangci-lint, superlinter, format, static-analysis]
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.1"
+
+      - name: Cache Go Modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
       - name: Install Dependencies
         shell: bash
@@ -95,24 +178,13 @@ jobs:
           name: coverage-report
           path: coverage.txt
 
-  static-analysis:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.23.1"
-
-      - name: Run Static Analysis
-        shell: bash
-        run: |
-          go vet ./...
-
   integration-tests:
+    needs: [unit-tests]
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -121,6 +193,16 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.23.1"
+
+      - name: Cache Go Modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
       - name: Install Dependencies
         shell: bash
@@ -137,3 +219,48 @@ jobs:
         run: |
           export TEST_KUBECONFIG=~/.kube/config
           go test -tags=integration -v ./internal/integration
+
+  build-binaries:
+    needs: [integration-tests]
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    strategy:
+      matrix:
+        os: [linux, darwin, windows]
+        arch: [arm64, amd64]
+        exclude:
+          - os: windows
+            arch: arm64
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.1"
+
+      - name: Cache Go Modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Cross-compile for ${{ matrix.os }}-${{ matrix.arch }}
+        shell: bash
+        run: |
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o k8s-backup-restore-${{ matrix.os }}-${{ matrix.arch }} ./cmd/main.go
+
+      - name: Upload Compiled Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: k8s-backup-restore-binaries-${{ matrix.os }}-${{ matrix.arch }}
+          path: k8s-backup-restore-${{ matrix.os }}-${{ matrix.arch }}
