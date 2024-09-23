@@ -6,11 +6,11 @@ import (
 	"testing"
 
 	"github.com/chaoscypher/k8s-backup-restore/internal/config"
-	"github.com/chaoscypher/k8s-backup-restore/internal/utils"
+	"github.com/chaoscypher/k8s-backup-restore/internal/logger"
 )
 
 func TestGetKubeconfigPath(t *testing.T) {
-	logger := utils.SetupLogger(&config.Config{})
+	logger := logger.SetupLogger(&config.Config{})
 
 	tests := []struct {
 		name       string

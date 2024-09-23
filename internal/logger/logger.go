@@ -1,12 +1,10 @@
-package utils
+package logger
 
 import (
 	"fmt"
 	"io"
 	"log"
 	"os"
-
-	"github.com/chaoscypher/k8s-backup-restore/internal/config"
 )
 
 // LogLevel represents the severity of a log message.
@@ -19,6 +17,19 @@ const (
 	WARN
 	ERROR
 )
+
+// LoggerInterface defines the methods for logging.
+type LoggerInterface interface {
+	Debug(v ...interface{})
+	Info(v ...interface{})
+	Warn(v ...interface{})
+	Error(v ...interface{})
+	Debugf(format string, v ...interface{})
+	Infof(format string, v ...interface{})
+	Warnf(format string, v ...interface{})
+	Errorf(format string, v ...interface{})
+	Close()
+}
 
 // Logger encapsulates logging functionality with support for different log levels.
 type Logger struct {
@@ -43,49 +54,10 @@ func NewLogger(out io.Writer, level LogLevel) *Logger {
 	}
 }
 
-// SetupLogger initializes the Logger based on the provided configuration.
-// It sets up logging to a file if specified in the config, otherwise defaults to stdout.
-func SetupLogger(cfg *config.Config) *Logger {
-	var logWriter = os.Stdout
-	var logFile *os.File
-	if cfg.LogFile != "" {
-		file, err := os.OpenFile(cfg.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-		if err != nil {
-			fmt.Printf("Failed to open log file: %v\n", err)
-			os.Exit(1)
-		}
-		logWriter = file
-		logFile = file
-	}
-	return &Logger{
-		Level:       parseLogLevel(cfg.LogLevel),
-		Output:      logWriter,
-		DebugLogger: log.New(logWriter, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile),
-		InfoLogger:  log.New(logWriter, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile),
-		WarnLogger:  log.New(logWriter, "WARN: ", log.Ldate|log.Ltime|log.Lshortfile),
-		ErrorLogger: log.New(logWriter, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile),
-		LogFile:     logFile,
-	}
-}
-
 // Close closes the log file if it is open.
 func (l *Logger) Close() {
 	if l.LogFile != nil {
 		l.LogFile.Close()
-	}
-}
-
-// parseLogLevel converts a string log level to the corresponding LogLevel type.
-func parseLogLevel(level string) LogLevel {
-	switch level {
-	case "debug":
-		return DEBUG
-	case "warn":
-		return WARN
-	case "error":
-		return ERROR
-	default:
-		return INFO
 	}
 }
 

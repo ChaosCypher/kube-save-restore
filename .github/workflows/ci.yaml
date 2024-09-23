@@ -81,13 +81,6 @@ jobs:
         with:
           go-version: "1.23.1"
 
-      - uses: actions/cache@v4
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
       - name: Install Dependencies
         shell: bash
         run: go mod download
@@ -113,13 +106,6 @@ jobs:
         with:
           go-version: "1.23.1"
 
-      - uses: actions/cache@v4
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
       - name: Run Static Analysis
         shell: bash
         run: |
@@ -135,13 +121,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.23.1"
-
-      - uses: actions/cache@v4
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
 
       - name: Install Dependencies
         shell: bash

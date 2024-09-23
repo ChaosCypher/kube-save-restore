@@ -1,4 +1,4 @@
-package utils
+package workerpool
 
 import (
 	"context"

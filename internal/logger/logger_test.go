@@ -1,4 +1,4 @@
-package utils
+package logger
 
 import (
 	"bytes"
@@ -37,7 +37,11 @@ func createTestLogger(t *testing.T, level LogLevel) (*Logger, *bytes.Buffer) {
 // Helper function to setup Logger based on config.
 func setupLoggerFromConfig(t *testing.T, cfg *config.Config) *Logger {
 	t.Helper()
-	return SetupLogger(cfg)
+	logger, ok := SetupLogger(cfg).(*Logger)
+	if !ok {
+		t.Fatalf("expected *Logger, got %T", logger)
+	}
+	return logger
 }
 
 // Helper function to perform logging and verify the output.
