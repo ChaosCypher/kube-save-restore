@@ -3,9 +3,9 @@ package backup
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/chaoscypher/k8s-backup-restore/internal/logger"
+	"github.com/chaoscypher/k8s-backup-restore/internal/workerpool"
 )
 
 const maxConcurrency = 10
@@ -42,18 +42,15 @@ func (bm *Manager) PerformBackup(ctx context.Context) error {
 		bm.logger.Info("Dry run mode: No files will be written")
 	}
 
-	tasks := make(chan backupTask, totalResources)
-	var wg sync.WaitGroup
+	wp := workerpool.NewWorkerPool(maxConcurrency, 1000)
+	bm.enqueueTasks(namespaces, wp)
 
-	for i := 0; i < maxConcurrency; i++ {
-		wg.Add(1)
-		go bm.worker(ctx, &wg, tasks)
+	errors := wp.Run(ctx)
+	if len(errors) > 0 {
+		for _, err := range errors {
+			bm.logger.Errorf("Error during backup: %v", err)
+		}
 	}
-
-	bm.enqueueTasks(namespaces, tasks)
-
-	close(tasks)
-	wg.Wait()
 
 	bm.logCompletionMessage(totalResources)
 	return nil

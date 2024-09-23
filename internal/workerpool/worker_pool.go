@@ -2,6 +2,7 @@ package workerpool
 
 import (
 	"context"
+	"errors"
 	"sync"
 )
 
@@ -16,26 +17,33 @@ type WorkerPool struct {
 	errors         []error
 	mu             sync.Mutex
 	closed         bool
-	muClose        sync.Mutex
+	muClose        sync.RWMutex
 }
 
 // NewWorkerPool creates a new WorkerPool with the specified maximum concurrency.
-func NewWorkerPool(maxConcurrency int) *WorkerPool {
+func NewWorkerPool(maxConcurrency, taskQueueSize int) *WorkerPool {
 	return &WorkerPool{
-		tasks:          make(chan Task, 100), // Buffered channel with capacity 100
+		tasks:          make(chan Task, taskQueueSize),
 		maxConcurrency: maxConcurrency,
 	}
 }
 
 // AddTask adds a new task to the worker pool.
-// It panics if the pool is already closed.
-func (wp *WorkerPool) AddTask(task Task) {
-	wp.muClose.Lock()
-	defer wp.muClose.Unlock()
+// It returns an error if the pool is already closed.
+func (wp *WorkerPool) AddTask(task Task) error {
+	wp.muClose.RLock()
 	if wp.closed {
-		panic("add task to closed WorkerPool")
+		wp.muClose.RUnlock()
+		return errors.New("worker pool is closed")
 	}
-	wp.tasks <- task
+	wp.muClose.RUnlock()
+
+	select {
+	case wp.tasks <- task:
+		return nil
+	default:
+		return errors.New("task queue is full")
+	}
 }
 
 // Close closes the worker pool, preventing new tasks from being added.
@@ -55,7 +63,11 @@ func (wp *WorkerPool) Run(ctx context.Context) []error {
 		wp.wg.Add(1)
 		go wp.worker(ctx)
 	}
+
 	wp.wg.Wait()
+
+	wp.mu.Lock()
+	defer wp.mu.Unlock()
 	return wp.errors
 }
 

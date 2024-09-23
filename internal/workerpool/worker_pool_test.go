@@ -8,26 +8,16 @@ import (
 	"time"
 )
 
-// TestAddTaskToClosedPool verifies that adding a task to a closed WorkerPool panics.
+// TestAddTaskToClosedPool verifies that adding a task to a closed WorkerPool returns an error.
 func TestAddTaskToClosedPool(t *testing.T) {
-	wp := NewWorkerPool(2)
+	wp := NewWorkerPool(1, 100)
 	wp.Close()
 
 	task := createSuccessTask()
-	expectPanic(t, func() {
-		wp.AddTask(task)
-	})
-}
-
-// Helper function to expect a panic when adding a task to a closed pool.
-func expectPanic(t *testing.T, fn func()) {
-	t.Helper()
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("Expected panic, but no panic occurred")
-		}
-	}()
-	fn()
+	err := wp.AddTask(task)
+	if err == nil {
+		t.Error("Expected an error when adding task to closed pool, but got nil")
+	}
 }
 
 // Helper function to assert that a task was added to the WorkerPool.
@@ -66,7 +56,7 @@ func assertErrorCount(t *testing.T, errors []error, expected int) {
 // Helper function to create and setup a WorkerPool with specified tasks.
 func setupWorkerPool(t *testing.T, maxConcurrency int, tasks []Task, closeAfterAdding bool) *WorkerPool {
 	t.Helper()
-	wp := NewWorkerPool(maxConcurrency)
+	wp := NewWorkerPool(maxConcurrency, 100)
 	for _, task := range tasks {
 		wp.AddTask(task)
 	}
@@ -99,7 +89,7 @@ func createFailTask() Task {
 // TestNewWorkerPool verifies the initialization of a new WorkerPool.
 func TestNewWorkerPool(t *testing.T) {
 	maxConcurrency := 5
-	wp := NewWorkerPool(maxConcurrency)
+	wp := NewWorkerPool(maxConcurrency, 100)
 
 	if wp.maxConcurrency != maxConcurrency {
 		t.Errorf("Expected maxConcurrency %d, got %d", maxConcurrency, wp.maxConcurrency)
@@ -116,11 +106,14 @@ func TestNewWorkerPool(t *testing.T) {
 
 // TestAddTask verifies that a task can be added to the WorkerPool.
 func TestAddTask(t *testing.T) {
-	wp := NewWorkerPool(2)
+	wp := NewWorkerPool(2, 100)
 	defer wp.Close()
 
 	task := createSuccessTask()
-	wp.AddTask(task)
+	err := wp.AddTask(task)
+	if err != nil {
+		t.Errorf("Expected no error, but got: %v", err)
+	}
 
 	assertTaskAdded(t, wp)
 }
@@ -171,7 +164,7 @@ func TestRunWithErrors(t *testing.T) {
 
 // TestRunWithContextCancellation verifies that tasks respect context cancellation.
 func TestRunWithContextCancellation(t *testing.T) {
-	wp := NewWorkerPool(2)
+	wp := NewWorkerPool(2, 100)
 	defer wp.Close()
 
 	taskLong := func(ctx context.Context) error {
@@ -205,7 +198,7 @@ func TestRunWithContextCancellation(t *testing.T) {
 
 // TestClose verifies that the WorkerPool can be closed properly and that closing is idempotent.
 func TestClose(t *testing.T) {
-	wp := NewWorkerPool(2)
+	wp := NewWorkerPool(2, 100)
 	wp.Close()
 
 	if !wp.closed {
@@ -241,5 +234,25 @@ func TestConcurrentAddAndRun(t *testing.T) {
 
 	if counter != totalTasks {
 		t.Errorf("Expected counter to be %d, got %d", totalTasks, counter)
+	}
+}
+
+// TestAddTaskToFullPool verifies that adding a task to a full WorkerPool returns an error.
+func TestAddTaskToFullPool(t *testing.T) {
+	wp := NewWorkerPool(1, 100)
+	defer wp.Close()
+
+	// Fill the task queue
+	for i := 0; i < 100; i++ {
+		err := wp.AddTask(createSuccessTask())
+		if err != nil {
+			t.Fatalf("Unexpected error filling task queue: %v", err)
+		}
+	}
+
+	// Try to add one more task
+	err := wp.AddTask(createSuccessTask())
+	if err == nil {
+		t.Error("Expected an error when adding task to full pool, but got nil")
 	}
 }

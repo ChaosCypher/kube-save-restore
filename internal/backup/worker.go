@@ -2,30 +2,22 @@ package backup
 
 import (
 	"context"
-	"sync"
+
+	"github.com/chaoscypher/k8s-backup-restore/internal/workerpool"
 )
 
-type backupTask struct {
-	resourceType string
-	namespace    string
-}
-
-func (bm *Manager) worker(ctx context.Context, wg *sync.WaitGroup, tasks <-chan backupTask) {
-	defer wg.Done()
-	for task := range tasks {
-		if err := bm.backupResource(ctx, task.resourceType, task.namespace); err != nil {
-			bm.logger.Errorf("Error backing up resource: %v", err)
+func (bm *Manager) enqueueTasks(namespaces []string, wp *workerpool.WorkerPool) {
+	for _, ns := range namespaces {
+		for _, resourceType := range []string{"deployments", "services", "configmaps", "secrets"} {
+			task := func(ctx context.Context) error {
+				return bm.backupResource(ctx, resourceType, ns)
+			}
+			if err := wp.AddTask(task); err != nil {
+				bm.logger.Errorf("Failed to add task: %v", err)
+			}
 		}
 	}
-}
-
-func (bm *Manager) enqueueTasks(namespaces []string, tasks chan<- backupTask) {
-	for _, ns := range namespaces {
-		tasks <- backupTask{resourceType: "deployments", namespace: ns}
-		tasks <- backupTask{resourceType: "services", namespace: ns}
-		tasks <- backupTask{resourceType: "configmaps", namespace: ns}
-		tasks <- backupTask{resourceType: "secrets", namespace: ns}
-	}
+	wp.Close()
 }
 
 func (bm *Manager) logCompletionMessage(totalResources int) {
