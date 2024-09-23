@@ -1,28 +1,31 @@
 package restore
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
-	"sync"
 
 	"github.com/chaoscypher/k8s-backup-restore/internal/kubernetes"
 	"github.com/chaoscypher/k8s-backup-restore/internal/logger"
+	"github.com/chaoscypher/k8s-backup-restore/internal/workerpool"
 )
 
 const maxConcurrency = 10
 
 // Manager handles the restore operations.
 type Manager struct {
-	k8sClient *kubernetes.Client
-	logger    logger.LoggerInterface
+	k8sClient  *kubernetes.Client
+	logger     logger.LoggerInterface
+	workerPool *workerpool.WorkerPool
 }
 
 // NewManager creates a new restore Manager.
 func NewManager(k8sClient *kubernetes.Client, logger logger.LoggerInterface) *Manager {
 	return &Manager{
-		k8sClient: k8sClient,
-		logger:    logger,
+		k8sClient:  k8sClient,
+		logger:     logger,
+		workerPool: workerpool.NewWorkerPool(maxConcurrency),
 	}
 }
 
@@ -42,27 +45,21 @@ func (m *Manager) PerformRestore(restoreDir string, dryRun bool) error {
 		m.logger.Info("Dry run mode: No resources will be created or modified")
 	}
 
-	tasks := make(chan string, totalResources)
-	var wg sync.WaitGroup
-
-	for i := 0; i < maxConcurrency; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for filename := range tasks {
-				if err := m.RestoreResource(filename, dryRun); err != nil {
-					m.logger.Errorf("Error restoring resource from %s: %v", filename, err)
-				}
-			}
-		}()
-	}
-
 	for _, file := range files {
-		tasks <- file
+		m.workerPool.AddTask(func(ctx context.Context) error {
+			return m.RestoreResource(ctx, file, dryRun)
+		})
 	}
 
-	close(tasks)
-	wg.Wait()
+	m.workerPool.Close()
+	errors := m.workerPool.Run(context.Background())
+
+	if len(errors) > 0 {
+		m.logger.Errorf("Encountered %d errors during restore", len(errors))
+		for _, err := range errors {
+			m.logger.Error(err)
+		}
+	}
 
 	if dryRun {
 		m.logger.Infof("Dry run completed. %d resources would be restored from: %s", totalResources, restoreDir)
@@ -73,7 +70,7 @@ func (m *Manager) PerformRestore(restoreDir string, dryRun bool) error {
 }
 
 // RestoreResource restores a single resource from the specified file. If dryRun is true, no changes will be made.
-func (m *Manager) RestoreResource(filename string, dryRun bool) error {
+func (m *Manager) RestoreResource(ctx context.Context, filename string, dryRun bool) error {
 	m.logger.Debugf("Restoring resource from file: %s", filename)
 
 	data, err := os.ReadFile(filename)
