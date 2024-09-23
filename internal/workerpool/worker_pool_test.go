@@ -58,7 +58,9 @@ func setupWorkerPool(t *testing.T, maxConcurrency int, tasks []Task, closeAfterA
 	t.Helper()
 	wp := NewWorkerPool(maxConcurrency, 100)
 	for _, task := range tasks {
-		wp.AddTask(task)
+		if err := wp.AddTask(task); err != nil {
+			t.Fatalf("Failed to add task: %v", err)
+		}
 	}
 	if closeAfterAdding {
 		wp.Close()
@@ -176,8 +178,12 @@ func TestRunWithContextCancellation(t *testing.T) {
 		}
 	}
 
-	wp.AddTask(taskLong)
-	wp.AddTask(taskLong)
+	if err := wp.AddTask(taskLong); err != nil {
+		t.Fatalf("Failed to add task: %v", err)
+	}
+	if err := wp.AddTask(taskLong); err != nil {
+		t.Fatalf("Failed to add task: %v", err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
