@@ -67,11 +67,20 @@ jobs:
             });
 
             // Find the workflow run that matches the head SHA
-            const matchingRun = runs.data.workflow_runs.find(run => run.head_sha === headSha && run.name === 'CI');
+            const matchingRun = runs.data.workflow_runs.find(run => run.head_sha === headSha);
 
             if (!matchingRun) {
               throw new Error('No workflow runs found for the PR head SHA.');
             }
+
+            Log available artifacts for debugging
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: matchingRun.id
+            });
+
+            console.log('Available Artifacts:', artifacts.data.artifacts.map(a => a.name));
 
             const runId = matchingRun.id;
             core.setOutput('run_id', runId)
