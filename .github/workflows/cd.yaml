@@ -33,7 +33,11 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            return { pr_number: context.payload.pull_request.number }
+            const pr_number = context.payload.pull_request.number;
+            if (!pr_number) {
+              throw new Error('Pull request number is undefined.');
+            }
+            core.setOutput('pr_number', pr_number)
 
       - name: Get the workflow run ID
         id: get_run_id
@@ -59,7 +63,7 @@ jobs:
             }
 
             const runId = runs.data.workflow_runs[0].id;
-            return { run_id: runId };
+            core.setOutput('run_id', runId)
 
       - name: Download Binaries
         uses: actions/download-artifact@v4
@@ -107,7 +111,9 @@ jobs:
               prerelease: false
             });
 
-            return { release_id: release.id, upload_url: release.upload_url, tag_name: nextVersion };
+            core.setOutput('release_id', release.id);
+            core.setOutput('upload_url', release.upload_url);
+            core.setOutput('tag_name', nextVersion);
 
       - name: Upload Binary
         uses: actions/github-script@v7
@@ -116,9 +122,9 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const os = '${{ matrix.os }}';
+            const osType = '${{ matrix.os }}';
             const arch = '${{ matrix.arch }}';
-            const path = `./binaries/${os}/${arch}/k8s-backup-restore-${os}-${arch}`;
+            const path = `./binaries/${osType}/${arch}/k8s-backup-restore-${osType}-${arch}`;
 
             if (!fs.existsSync(path)) {
               throw new Error(`Binary not found at path: ${path}`);
@@ -131,7 +137,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               release_id: releaseId,
-              name: `k8s-backup-restore-${os}-${arch}`,
+              name: `k8s-backup-restore-${osType}-${arch}`,
               data: content,
               headers: {
                 'content-type': 'application/octet-stream',
