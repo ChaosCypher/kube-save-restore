@@ -73,7 +73,7 @@ jobs:
               throw new Error('No workflow runs found for the PR head SHA.');
             }
 
-            Log available artifacts for debugging
+            // Log available artifacts for debugging
             const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
               owner: context.repo.owner,
               repo: context.repo.repo,
