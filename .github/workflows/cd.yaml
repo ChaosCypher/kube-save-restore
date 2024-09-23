@@ -49,7 +49,7 @@ jobs:
               throw new Error('Pull request number is undefined.');
             }
 
-            const runs = await github.actions.listWorkflowRunsForRepo({
+            const runs = await github.rest.actions.listWorkflowRunsForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               branch: 'main',
