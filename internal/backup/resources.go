@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 )
 
+// backupResource handles the backup of a specific resource type in a namespace.
 func (bm *Manager) backupResource(ctx context.Context, resourceType, namespace string) error {
 	var err error
 	switch resourceType {
@@ -23,6 +24,7 @@ func (bm *Manager) backupResource(ctx context.Context, resourceType, namespace s
 	return err
 }
 
+// backupDeployments backs up all deployments in a given namespace.
 func (bm *Manager) backupDeployments(ctx context.Context, namespace string) error {
 	deployments, err := bm.client.ListDeployments(ctx, namespace)
 	if err != nil {
@@ -43,6 +45,7 @@ func (bm *Manager) backupDeployments(ctx context.Context, namespace string) erro
 	return nil
 }
 
+// backupServices backs up all services in a given namespace.
 func (bm *Manager) backupServices(ctx context.Context, namespace string) error {
 	services, err := bm.client.ListServices(ctx, namespace)
 	if err != nil {
@@ -63,6 +66,7 @@ func (bm *Manager) backupServices(ctx context.Context, namespace string) error {
 	return nil
 }
 
+// backupConfigMaps backs up all config maps in a given namespace.
 func (bm *Manager) backupConfigMaps(ctx context.Context, namespace string) error {
 	configMaps, err := bm.client.ListConfigMaps(ctx, namespace)
 	if err != nil {
@@ -83,6 +87,7 @@ func (bm *Manager) backupConfigMaps(ctx context.Context, namespace string) error
 	return nil
 }
 
+// backupSecrets backs up all secrets in a given namespace.
 func (bm *Manager) backupSecrets(ctx context.Context, namespace string) error {
 	secrets, err := bm.client.ListSecrets(ctx, namespace)
 	if err != nil {

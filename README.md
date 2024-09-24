@@ -48,28 +48,6 @@ Kubernetes Backup & Restore is a robust and user-friendly tool designed to simpl
 
 ## Installation
 
-### Release Assets
-
-You can download the latest release assets from the [GitHub Releases](https://github.com/chaoscypher/k8s-backup-restore/releases) page. Follow these steps to install the `k8s-backup-restore` binary:
-
-1. **Select the Appropriate Asset**: Choose the release asset that matches your operating system and architecture.
-
-2. **Download the Asset**: Click on the asset to download it to your local machine.
-
-3. **Extract the Archive**: Unzip or untar the downloaded archive to extract the `k8s-backup-restore-<os>-<arch>` binary.
-
-4. **Rename the Binary**: Rename the extracted binary to `k8s-backup-restore`.
-
-   ```bash
-   mv k8s-backup-restore-<os>-<arch> k8s-backup-restore
-   ```
-
-5. **Move the Binary to Your PATH**: Move the renamed binary to a directory that is included in your system's `PATH`, or execute it directly from its current location.
-
-   ```bash
-   sudo mv k8s-backup-restore /usr/local/bin/
-   ```
-
 ### Building from Source
 
 1. **Clone the Repository**
