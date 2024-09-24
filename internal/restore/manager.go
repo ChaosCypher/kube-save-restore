@@ -1,13 +1,14 @@
 package restore
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
-	"sync"
 
 	"github.com/chaoscypher/k8s-backup-restore/internal/kubernetes"
 	"github.com/chaoscypher/k8s-backup-restore/internal/logger"
+	"github.com/chaoscypher/k8s-backup-restore/internal/workerpool"
 )
 
 const maxConcurrency = 10
@@ -42,34 +43,43 @@ func (m *Manager) PerformRestore(restoreDir string, dryRun bool) error {
 		m.logger.Info("Dry run mode: No resources will be created or modified")
 	}
 
-	tasks := make(chan string, totalResources)
-	var wg sync.WaitGroup
+	// Initialize the worker pool
+	wp := workerpool.NewWorkerPool(maxConcurrency, totalResources)
+	m.enqueueTasks(files, wp, dryRun)
 
-	for i := 0; i < maxConcurrency; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for filename := range tasks {
-				if err := m.RestoreResource(filename, dryRun); err != nil {
-					m.logger.Errorf("Error restoring resource from %s: %v", filename, err)
-				}
-			}
-		}()
+	// Run the worker pool and collect any errors
+	errors := wp.Run(context.Background())
+	if len(errors) > 0 {
+		for _, err := range errors {
+			m.logger.Errorf("Error during restore: %v", err)
+		}
 	}
 
+	m.logCompletionMessage(totalResources, dryRun, restoreDir)
+	return nil
+}
+
+// enqueueTasks adds restore tasks for each resource file to the worker pool.
+func (m *Manager) enqueueTasks(files []string, wp *workerpool.WorkerPool, dryRun bool) {
 	for _, file := range files {
-		tasks <- file
+		resourceFile := file // capture range variable
+		task := func(ctx context.Context) error {
+			return m.RestoreResource(resourceFile, dryRun)
+		}
+		if err := wp.AddTask(task); err != nil {
+			m.logger.Errorf("Failed to add task for file %s: %v", resourceFile, err)
+		}
 	}
+	wp.Close()
+}
 
-	close(tasks)
-	wg.Wait()
-
+// logCompletionMessage logs a summary message upon completion of the restore operation.
+func (m *Manager) logCompletionMessage(totalResources int, dryRun bool, restoreDir string) {
 	if dryRun {
 		m.logger.Infof("Dry run completed. %d resources would be restored from: %s", totalResources, restoreDir)
 	} else {
 		m.logger.Infof("Restore completed. %d resources restored from: %s", totalResources, restoreDir)
 	}
-	return nil
 }
 
 // RestoreResource restores a single resource from the specified file. If dryRun is true, no changes will be made.
@@ -87,17 +97,16 @@ func (m *Manager) RestoreResource(filename string, dryRun bool) error {
 	}
 
 	resource, kind := adjustResourceStructure(rawResource)
-
 	if err := validateResource(resource); err != nil {
-		return err
+		return fmt.Errorf("invalid resource structure: %v", err)
 	}
 
-	name, namespace := getResourceIdentifiers(resource)
-
 	if dryRun {
-		m.logger.Infof("Would restore %s: %s/%s", kind, namespace, name)
+		m.logger.Infof("Dry run: would restore %s/%s", kind, filename)
 		return nil
 	}
 
+	name, namespace := getResourceIdentifiers(resource)
+	m.logger.Infof("Restoring %s/%s in namespace %s", kind, name, namespace)
 	return applyResource(m.k8sClient, resource, kind, namespace)
 }
