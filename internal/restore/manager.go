@@ -32,18 +32,20 @@ func NewManager(k8sClient *kubernetes.Client, logger logger.LoggerInterface) *Ma
 func (m *Manager) PerformRestore(restoreDir string, dryRun bool) error {
 	m.logger.Info("Starting restore operation")
 
+	// Get the list of resource files from the restore directory
 	files, err := getResourceFiles(restoreDir)
 	if err != nil {
 		return fmt.Errorf("error getting resource files: %v", err)
 	}
 
+	// Count the total number of resources to be restored
 	totalResources := m.countResources(files)
 
 	if dryRun {
 		m.logger.Info("Dry run mode: No resources will be created or modified")
 	}
 
-	// Initialize the worker pool
+	// Initialize the worker pool with a maximum concurrency and total resources
 	wp := workerpool.NewWorkerPool(maxConcurrency, totalResources)
 	m.enqueueTasks(files, wp, dryRun)
 
@@ -55,6 +57,7 @@ func (m *Manager) PerformRestore(restoreDir string, dryRun bool) error {
 		}
 	}
 
+	// Log a completion message summarizing the restore operation
 	m.logCompletionMessage(totalResources, dryRun, restoreDir)
 	return nil
 }
@@ -86,16 +89,19 @@ func (m *Manager) logCompletionMessage(totalResources int, dryRun bool, restoreD
 func (m *Manager) RestoreResource(filename string, dryRun bool) error {
 	m.logger.Debugf("Restoring resource from file: %s", filename)
 
+	// Read the resource file
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return fmt.Errorf("error reading file %s: %v", filename, err)
 	}
 
+	// Unmarshal the JSON data into a raw resource map
 	var rawResource map[string]interface{}
 	if err := json.Unmarshal(data, &rawResource); err != nil {
 		return fmt.Errorf("error unmarshaling resource: %v", err)
 	}
 
+	// Adjust the resource structure and validate it
 	resource, kind := adjustResourceStructure(rawResource)
 	if err := validateResource(resource); err != nil {
 		return fmt.Errorf("invalid resource structure: %v", err)
@@ -106,6 +112,7 @@ func (m *Manager) RestoreResource(filename string, dryRun bool) error {
 		return nil
 	}
 
+	// Get the resource identifiers and apply the resource to the Kubernetes cluster
 	name, namespace := getResourceIdentifiers(resource)
 	m.logger.Infof("Restoring %s/%s in namespace %s", kind, name, namespace)
 	return applyResource(m.k8sClient, resource, kind, namespace)
