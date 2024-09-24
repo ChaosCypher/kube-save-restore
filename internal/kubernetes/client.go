@@ -14,6 +14,7 @@ type ClientInterface interface {
 	NamespaceLister
 	SecretLister
 	ServiceLister
+	StatefulSetLister
 }
 
 // Client implements the ClientInterface

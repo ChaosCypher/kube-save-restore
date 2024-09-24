@@ -8,7 +8,7 @@ import (
 
 func (bm *Manager) enqueueTasks(namespaces []string, wp *workerpool.WorkerPool) {
 	for _, ns := range namespaces {
-		for _, resourceType := range []string{"deployments", "services", "configmaps", "secrets"} {
+		for _, resourceType := range []string{"deployments", "services", "configmaps", "secrets", "statefulsets"} {
 			task := func(ctx context.Context) error {
 				return bm.backupResource(ctx, resourceType, ns)
 			}

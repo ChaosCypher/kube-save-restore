@@ -29,6 +29,8 @@ func applyResource(client *kubernetes.Client, resource map[string]interface{}, k
 		return applyConfigMap(client, adjustedData, namespace)
 	case "Secret":
 		return applySecret(client, adjustedData, namespace)
+	case "StatefulSet":
+		return applyStatefulSet(client, adjustedData, namespace)
 	default:
 		return fmt.Errorf("unsupported resource kind: %s", kind)
 	}
@@ -82,6 +84,19 @@ func applySecret(client *kubernetes.Client, data []byte, namespace string) error
 	_, err := client.Clientset.CoreV1().Secrets(namespace).Update(context.TODO(), &secret, metav1.UpdateOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		_, err = client.Clientset.CoreV1().Secrets(namespace).Create(context.TODO(), &secret, metav1.CreateOptions{})
+	}
+	return err
+}
+
+// applyStatefulSet applies a StatefulSet resource to the Kubernetes cluster.
+func applyStatefulSet(client *kubernetes.Client, data []byte, namespace string) error {
+	var statefulSet appsv1.StatefulSet
+	if err := json.Unmarshal(data, &statefulSet); err != nil {
+		return fmt.Errorf("error unmarshaling stateful set: %v", err)
+	}
+	_, err := client.Clientset.AppsV1().StatefulSets(namespace).Update(context.TODO(), &statefulSet, metav1.UpdateOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		_, err = client.Clientset.AppsV1().StatefulSets(namespace).Create(context.TODO(), &statefulSet, metav1.CreateOptions{})
 	}
 	return err
 }

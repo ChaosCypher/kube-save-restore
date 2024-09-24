@@ -48,6 +48,12 @@ func (m *MockKubernetesClient) ListSecrets(ctx context.Context, namespace string
 	return args.Get(0).(*corev1.SecretList), args.Error(1)
 }
 
+// ListStatefulSets mocks the ListStatefulSets method of the KubernetesClient interface.
+func (m *MockKubernetesClient) ListStatefulSets(ctx context.Context, namespace string) (*appsv1.StatefulSetList, error) {
+	args := m.Called(ctx, namespace)
+	return args.Get(0).(*appsv1.StatefulSetList), args.Error(1)
+}
+
 // setupMockClient creates and configures a MockKubernetesClient with default expectations.
 func setupMockClient() *MockKubernetesClient {
 	mockClient := new(MockKubernetesClient)
@@ -56,6 +62,7 @@ func setupMockClient() *MockKubernetesClient {
 	mockClient.On("ListServices", mock.Anything, "default").Return(&corev1.ServiceList{}, nil)
 	mockClient.On("ListConfigMaps", mock.Anything, "default").Return(&corev1.ConfigMapList{}, nil)
 	mockClient.On("ListSecrets", mock.Anything, "default").Return(&corev1.SecretList{}, nil)
+	mockClient.On("ListStatefulSets", mock.Anything, "default").Return(&appsv1.StatefulSetList{}, nil)
 	return mockClient
 }
 

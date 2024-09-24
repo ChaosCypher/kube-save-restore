@@ -18,6 +18,8 @@ func (bm *Manager) backupResource(ctx context.Context, resourceType, namespace s
 		err = bm.backupConfigMaps(ctx, namespace)
 	case "secrets":
 		err = bm.backupSecrets(ctx, namespace)
+	case "statefulsets":
+		err = bm.backupStatefulSets(ctx, namespace)
 	default:
 		return fmt.Errorf("unknown resource type: %s", resourceType)
 	}
@@ -100,6 +102,27 @@ func (bm *Manager) backupSecrets(ctx context.Context, namespace string) error {
 			bm.logger.Infof("Would backup secret: %s/%s", namespace, secret.Name)
 		} else {
 			if err := bm.saveResource(secret, "Secret", filename); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// backupStatefulSets backs up all stateful sets in a given namespace.
+func (bm *Manager) backupStatefulSets(ctx context.Context, namespace string) error {
+	statefulSets, err := bm.client.ListStatefulSets(ctx, namespace)
+	if err != nil {
+		return fmt.Errorf("error listing stateful sets in namespace %s: %v", namespace, err)
+	}
+
+	for _, statefulSet := range statefulSets.Items {
+		filename := filepath.Join(bm.backupDir, namespace, "statefulsets", statefulSet.Name+".json")
+		if bm.dryRun {
+			bm.logger.Infof("Would backup stateful set: %s/%s", namespace, statefulSet.Name)
+		} else {
+			if err := bm.saveResource(statefulSet, "StatefulSet", filename); err != nil {
 				return err
 			}
 		}

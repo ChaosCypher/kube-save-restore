@@ -37,8 +37,15 @@ func (bm *Manager) countResources(ctx context.Context, namespaces []string) int 
 			continue
 		}
 
+		// Count statefulsets
+		statefulSets, err := bm.client.ListStatefulSets(ctx, ns)
+		if err != nil {
+			bm.logger.Errorf("Error listing stateful sets in namespace %s: %v", ns, err)
+			continue
+		}
+
 		// Sum up the total number of resources
-		total += len(deployments.Items) + len(services.Items) + len(configMaps.Items) + len(secrets.Items)
+		total += len(deployments.Items) + len(services.Items) + len(configMaps.Items) + len(secrets.Items) + len(statefulSets.Items)
 	}
 	return total
 }
