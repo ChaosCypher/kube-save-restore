@@ -37,7 +37,7 @@ func (m *Manager) PerformRestore(restoreDir string, dryRun bool) error {
 		return fmt.Errorf("error getting resource files: %v", err)
 	}
 
-	totalResources := len(files)
+	totalResources := m.countResources(files)
 
 	if dryRun {
 		m.logger.Info("Dry run mode: No resources will be created or modified")
