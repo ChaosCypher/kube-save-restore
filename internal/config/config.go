@@ -9,32 +9,33 @@ import (
 
 // Config holds the configuration for the application.
 type Config struct {
-	KubeConfig string
-	Context    string
-	BackupDir  string
-	RestoreDir string
-	Mode       string
-	DryRun     bool
-	LogLevel   string
-	LogFile    string
+	KubeConfig     string
+	Context        string
+	BackupDir      string
+	RestoreDir     string
+	Mode           string
+	DryRun         bool
+	LogLevel       string
+	LogFile        string
+	MaxConcurrency int
 }
 
 // ParseFlags parses command-line flags and environment variables into a Config struct.
 func ParseFlags() *Config {
 	config := &Config{}
-	flag.StringVar(&config.KubeConfig, "kubeconfig", getEnv("KUBECONFIG", ""), "Path to kubeconfig file (default is $HOME/.kube/config)")
-	flag.StringVar(&config.Context, "context", getEnv("KUBE_CONTEXT", ""), "Kubernetes context to use")
-	flag.StringVar(&config.BackupDir, "backup-dir", getEnv("BACKUP_DIR", ""), "Directory to store backups")
-	flag.StringVar(&config.RestoreDir, "restore-dir", getEnv("RESTORE_DIR", ""), "Directory to restore from")
-	flag.StringVar(&config.Mode, "mode", getEnv("MODE", "backup"), "Mode: 'backup' or 'restore'")
-	flag.BoolVar(&config.DryRun, "dry-run", getEnvAsBool("DRY_RUN", false), "Perform a dry run without making any changes")
-	flag.StringVar(&config.LogLevel, "log-level", getEnv("LOG_LEVEL", "info"), "Log level: debug, info, warn, error")
-	flag.StringVar(&config.LogFile, "log-file", getEnv("LOG_FILE", ""), "Path to log file (if not set, logs to stdout)")
+
+	flag.StringVar(&config.KubeConfig, "kubeconfig", "", "Path to the kubeconfig file")
+	flag.StringVar(&config.Context, "context", "", "Kubernetes context to use")
+	flag.StringVar(&config.BackupDir, "backup-dir", "", "Directory to store backups")
+	flag.StringVar(&config.RestoreDir, "restore-dir", "", "Directory to restore from")
+	flag.StringVar(&config.Mode, "mode", "backup", "Mode of operation: backup or restore")
+	flag.BoolVar(&config.DryRun, "dry-run", false, "Perform a dry run without making any changes")
+	flag.StringVar(&config.LogLevel, "log-level", "info", "Log level: debug, info, warn, error")
+	flag.StringVar(&config.LogFile, "log-file", "", "Path to the log file")
+	flag.IntVar(&config.MaxConcurrency, "max-concurrency", 10, "Maximum number of concurrent operations")
+
 	flag.Parse()
-	if err := validateConfig(config); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+
 	return config
 }
 

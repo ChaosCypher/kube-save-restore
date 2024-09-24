@@ -32,7 +32,7 @@ func TestParseFlags(t *testing.T) {
 				"LOG_FILE":     "",
 			},
 			expectFunc: func(config *Config) bool {
-				return config.Mode == "backup" && !config.DryRun && config.LogLevel == "info"
+				return config.Mode == "backup" && !config.DryRun && config.LogLevel == "info" && config.MaxConcurrency == 10
 			},
 		},
 		{
@@ -46,6 +46,7 @@ func TestParseFlags(t *testing.T) {
 				"--dry-run=true",
 				"--log-level=debug",
 				"--log-file=/path/to/logfile",
+				"--max-concurrency=5",
 			},
 			envVars: map[string]string{},
 			expectFunc: func(config *Config) bool {
@@ -56,33 +57,24 @@ func TestParseFlags(t *testing.T) {
 					config.Mode == "restore" &&
 					config.DryRun &&
 					config.LogLevel == "debug" &&
-					config.LogFile == "/path/to/logfile"
+					config.LogFile == "/path/to/logfile" &&
+					config.MaxConcurrency == 5
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Set environment variables
-			for key, value := range tt.envVars {
-				os.Setenv(key, value)
-			}
+			t.Parallel()
+			setEnvVars(tt.envVars)
+			defer unsetEnvVars(tt.envVars)
 
-			// Set command-line arguments
 			os.Args = append([]string{"cmd"}, tt.args...)
-
-			// Parse flags
 			flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 			config := ParseFlags()
 
-			// Validate expectations
 			if !tt.expectFunc(config) {
-				t.Errorf("Test %s failed", tt.name)
-			}
-
-			// Unset environment variables
-			for key := range tt.envVars {
-				os.Unsetenv(key)
+				t.Errorf("Test %s failed: expected config to match", tt.name)
 			}
 		})
 	}
@@ -127,6 +119,7 @@ func TestValidateConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := validateConfig(tt.config)
 			if (err != nil) != tt.expectErr {
 				t.Errorf("Test %s failed: expected error %v, got %v", tt.name, tt.expectErr, err)
@@ -137,15 +130,8 @@ func TestValidateConfig(t *testing.T) {
 
 // TestGetEnv tests the getEnv function.
 func TestGetEnv(t *testing.T) {
-	// Backup original environment variable and ensure it's restored after the test.
 	originalValue, exists := os.LookupEnv("TEST_ENV")
-	defer func() {
-		if exists {
-			os.Setenv("TEST_ENV", originalValue)
-		} else {
-			os.Unsetenv("TEST_ENV")
-		}
-	}()
+	defer restoreEnv("TEST_ENV", originalValue, exists)
 
 	tests := []struct {
 		name         string
@@ -175,6 +161,7 @@ func TestGetEnv(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if tt.envSet {
 				os.Setenv(tt.envKey, tt.envValue)
 			} else {
@@ -191,15 +178,8 @@ func TestGetEnv(t *testing.T) {
 
 // TestGetEnvAsBool tests the getEnvAsBool function.
 func TestGetEnvAsBool(t *testing.T) {
-	// Backup original environment variable and ensure it's restored after the test.
 	originalValue, exists := os.LookupEnv("TEST_BOOL_ENV")
-	defer func() {
-		if exists {
-			os.Setenv("TEST_BOOL_ENV", originalValue)
-		} else {
-			os.Unsetenv("TEST_BOOL_ENV")
-		}
-	}()
+	defer restoreEnv("TEST_BOOL_ENV", originalValue, exists)
 
 	tests := []struct {
 		name         string
@@ -253,6 +233,7 @@ func TestGetEnvAsBool(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if tt.envSet {
 				os.Setenv(tt.envKey, tt.envValue)
 			} else {
@@ -264,5 +245,26 @@ func TestGetEnvAsBool(t *testing.T) {
 				t.Errorf("getEnvAsBool(%s, %v) = %v; want %v", tt.envKey, tt.defaultValue, result, tt.expected)
 			}
 		})
+	}
+}
+
+// Helper functions
+func setEnvVars(envVars map[string]string) {
+	for key, value := range envVars {
+		os.Setenv(key, value)
+	}
+}
+
+func unsetEnvVars(envVars map[string]string) {
+	for key := range envVars {
+		os.Unsetenv(key)
+	}
+}
+
+func restoreEnv(key, value string, exists bool) {
+	if exists {
+		os.Setenv(key, value)
+	} else {
+		os.Unsetenv(key)
 	}
 }

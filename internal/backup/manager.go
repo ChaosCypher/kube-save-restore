@@ -8,24 +8,23 @@ import (
 	"github.com/chaoscypher/k8s-backup-restore/internal/workerpool"
 )
 
-// maxConcurrency defines the maximum number of concurrent backup operations.
-const maxConcurrency = 10
-
 // Manager handles the backup process for Kubernetes resources.
 type Manager struct {
-	client    KubernetesClient
-	backupDir string
-	dryRun    bool
-	logger    logger.LoggerInterface
+	client         KubernetesClient
+	backupDir      string
+	dryRun         bool
+	logger         logger.LoggerInterface
+	maxConcurrency int
 }
 
 // NewManager creates a new Manager instance.
-func NewManager(client KubernetesClient, backupDir string, dryRun bool, logger logger.LoggerInterface) *Manager {
+func NewManager(client KubernetesClient, backupDir string, dryRun bool, logger logger.LoggerInterface, maxConcurrency int) *Manager {
 	return &Manager{
-		client:    client,
-		backupDir: backupDir,
-		dryRun:    dryRun,
-		logger:    logger,
+		client:         client,
+		backupDir:      backupDir,
+		dryRun:         dryRun,
+		logger:         logger,
+		maxConcurrency: maxConcurrency,
 	}
 }
 
@@ -33,6 +32,7 @@ func NewManager(client KubernetesClient, backupDir string, dryRun bool, logger l
 func (bm *Manager) PerformBackup(ctx context.Context) error {
 	bm.logger.Info("Starting backup operation")
 
+	bm.logger.Debug("Fetching namespaces")
 	// List all namespaces
 	namespaces, err := bm.client.ListNamespaces(ctx)
 	if err != nil {
@@ -47,7 +47,7 @@ func (bm *Manager) PerformBackup(ctx context.Context) error {
 	}
 
 	// Create a worker pool for concurrent backup operations
-	wp := workerpool.NewWorkerPool(maxConcurrency, 1000)
+	wp := workerpool.NewWorkerPool(bm.maxConcurrency, 1000)
 	bm.enqueueTasks(namespaces, wp)
 
 	// Run the worker pool and collect any errors

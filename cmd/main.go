@@ -64,7 +64,7 @@ func handleBackup(config *config.Config, k8sClient *kubernetes.Client, logger lo
 	if config.BackupDir == "" {
 		config.BackupDir = filepath.Join(".", fmt.Sprintf("k8s-backup-%s", time.Now().Format("20060102-150405")))
 	}
-	backupManager := backup.NewManager(k8sClient, config.BackupDir, config.DryRun, logger)
+	backupManager := backup.NewManager(k8sClient, config.BackupDir, config.DryRun, logger, config.MaxConcurrency)
 	return backupManager.PerformBackup(context.Background())
 }
 

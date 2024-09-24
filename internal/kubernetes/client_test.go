@@ -13,6 +13,12 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
+func setupKubeconfig(dir, content string) (string, error) {
+	filePath := filepath.Join(dir, "kubeconfig.yaml")
+	err := os.WriteFile(filePath, []byte(content), 0644)
+	return filePath, err
+}
+
 // TestNewClient tests the NewClient function with various scenarios.
 func TestNewClient(t *testing.T) {
 	// Define test cases
@@ -47,9 +53,7 @@ users:
   user:
     token: test-token
 `
-				filePath := filepath.Join(dir, "kubeconfig.yaml")
-				err := os.WriteFile(filePath, []byte(kubeconfigContent), 0644)
-				return filePath, err
+				return setupKubeconfig(dir, kubeconfigContent)
 			},
 		},
 		{
@@ -82,9 +86,7 @@ users:
   user:
     token: test-token
 `
-				filePath := filepath.Join(dir, "kubeconfig.yaml")
-				err := os.WriteFile(filePath, []byte(kubeconfigContent), 0644)
-				return filePath, err
+				return setupKubeconfig(dir, kubeconfigContent)
 			},
 		},
 	}
@@ -118,7 +120,6 @@ users:
 				if err == nil {
 					t.Fatalf("Expected error but got none")
 				}
-				// Optionally, check for specific error messages here
 			} else {
 				if err != nil {
 					t.Fatalf("Did not expect error but got: %v", err)
