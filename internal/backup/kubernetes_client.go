@@ -4,6 +4,7 @@ import (
 	"context"
 
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -23,4 +24,7 @@ type KubernetesClient interface {
 
 	// ListSecrets returns a list of all secrets in the specified namespace.
 	ListSecrets(ctx context.Context, namespace string) (*corev1.SecretList, error)
+
+	// ListHorizontalPodAutoscalers returns a list of all horizontal pod autoscalers in the specified namespace.
+	ListHorizontalPodAutoscalers(ctx context.Context, namespace string) (*autoscalingv2.HorizontalPodAutoscalerList, error)
 }
