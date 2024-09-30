@@ -14,6 +14,7 @@ import (
 	"github.com/chaoscypher/k8s-backup-restore/internal/logger"
 	"github.com/chaoscypher/k8s-backup-restore/internal/restore"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -284,6 +285,7 @@ func TestBackupAndRestoreDeployment(t *testing.T) {
 
 func TestBackupAndRestoreHorizontalPodAutoscaler(t *testing.T) {
 	ctx := context.Background()
+	deploymentName := "test-hpa-deployment"
 	testNamespace := "test-hpa-namespace"
 	hpaName := "test-hpa"
 
@@ -314,6 +316,37 @@ func TestBackupAndRestoreHorizontalPodAutoscaler(t *testing.T) {
 	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("Failed to create namespace: %v", err)
+	}
+
+	// Create a simple Deployment
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      deploymentName,
+			Namespace: testNamespace,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: int32Ptr(1),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "test"},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "test"},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "nginx",
+							Image: "nginx:latest",
+						},
+					},
+				},
+			},
+		},
+	}
+	_, err = kubeClient.Clientset.AppsV1().Deployments(testNamespace).Create(ctx, deployment, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create deployment: %v", err)
 	}
 
 	// Create a simple HorizontalPodAutoscaler
@@ -531,7 +564,7 @@ func TestBackupAndRestoreConfigMap(t *testing.T) {
 	// Perform restore
 	testConfig.Mode = "restore"
 	testConfig.RestoreDir = testConfig.BackupDir
-	restoreManager = restore.NewManager(kubeClient, log)
+	restoreManager := restore.NewManager(kubeClient, log)
 	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
 	if err != nil {
 		t.Fatalf("Restore failed: %v", err)
@@ -605,7 +638,7 @@ func TestBackupAndRestoreService(t *testing.T) {
 	}
 
 	// Perform backup
-	backupManager = backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
+	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
 	err = backupManager.PerformBackup(ctx)
 	if err != nil {
 		t.Fatalf("Backup failed: %v", err)
@@ -625,7 +658,7 @@ func TestBackupAndRestoreService(t *testing.T) {
 	// Perform restore
 	testConfig.Mode = "restore"
 	testConfig.RestoreDir = testConfig.BackupDir
-	restoreManager = restore.NewManager(kubeClient, log)
+	restoreManager := restore.NewManager(kubeClient, log)
 	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
 	if err != nil {
 		t.Fatalf("Restore failed: %v", err)

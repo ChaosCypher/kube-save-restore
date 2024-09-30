@@ -7,9 +7,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// HPA defines the methods to list HPAs
-type HPA interface {
-	ListHPAs(ctx context.Context, namespace string) (*autoscalingv2.HorizontalPodAutoscalerList, error)
+// HorizontalPodAutoscalerLister defines the methods to list HorizontalPodAutoscalers
+type HorizontalPodAutoscalerLister interface {
+	ListHorizontalPodAutoscalers(ctx context.Context, namespace string) (*autoscalingv2.HorizontalPodAutoscalerList, error)
 }
 
 // ListHPAs lists all HPAs in the specified namespace

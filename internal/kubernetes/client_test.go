@@ -227,7 +227,7 @@ func TestListServices(t *testing.T) {
 	}
 }
 
-func TestListHPAs(t *testing.T) {
+func TestListHorizontalPodAutoscalers(t *testing.T) {
 	client := &Client{Clientset: fake.NewSimpleClientset(&autoscalingv2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-hpa", Namespace: "default"},
 	})}

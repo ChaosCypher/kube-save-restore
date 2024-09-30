@@ -33,7 +33,7 @@ func applyResource(client *kubernetes.Client, resource map[string]interface{}, k
 	case "Secret":
 		return applySecret(client, adjustedData, namespace)
 	case "HorizontalPodAutoscaler":
-		return applyHPAS(client, adjustedData, namespace)
+		return applyHorizontalPodAutoscalers(client, adjustedData, namespace)
 	default:
 		return fmt.Errorf("unsupported resource kind: %s", kind)
 	}
@@ -99,8 +99,8 @@ func applySecret(client *kubernetes.Client, data []byte, namespace string) error
 	return err
 }
 
-// applyHPAS applies a HorizontalPodAutoscaler resource to the Kubernetes cluster.
-func applyHPAS(client *kubernetes.Client, data []byte, namespace string) error {
+// applyHorizontalPodAutoscalers applies a HorizontalPodAutoscaler resource to the Kubernetes cluster.
+func applyHorizontalPodAutoscalers(client *kubernetes.Client, data []byte, namespace string) error {
 	var hpa autoscalingv2.HorizontalPodAutoscaler
 	// Unmarshal the JSON data into a HorizontalPodAutoscaler object
 	if err := json.Unmarshal(data, &hpa); err != nil {

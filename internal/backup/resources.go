@@ -19,7 +19,7 @@ func (bm *Manager) backupResource(ctx context.Context, resourceType, namespace s
 	case "secrets":
 		err = bm.backupSecrets(ctx, namespace)
 	case "hpas":
-		err = bm.backupHPAs(ctx, namespace)
+		err = bm.backupHorizontalPodAutoscalers(ctx, namespace)
 	default:
 		return fmt.Errorf("unknown resource type: %s", resourceType)
 	}
@@ -110,8 +110,8 @@ func (bm *Manager) backupSecrets(ctx context.Context, namespace string) error {
 	return nil
 }
 
-// backupHPAs backs up all horizontal pod autoscalers in a given namespace.
-func (bm *Manager) backupHPAs(ctx context.Context, namespace string) error {
+// backupHorizontalPodAutoscalers backs up all horizontal pod autoscalers in a given namespace.
+func (bm *Manager) backupHorizontalPodAutoscalers(ctx context.Context, namespace string) error {
 	hpas, err := bm.client.ListHorizontalPodAutoscalers(ctx, namespace)
 	if err != nil {
 		return fmt.Errorf("error listing HPAs in namespace %s: %v", namespace, err)
