@@ -41,6 +41,8 @@ func (bm *Manager) countResources(ctx context.Context, namespaces []string) int 
 		statefulSets, err := bm.client.ListStatefulSets(ctx, ns)
 		if err != nil {
 			bm.logger.Errorf("Error listing stateful sets in namespace %s: %v", ns, err)
+			continue
+		}
 
 		// Count HPAs
 		hpas, err := bm.client.ListHorizontalPodAutoscalers(ctx, ns)

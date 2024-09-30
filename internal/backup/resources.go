@@ -125,6 +125,13 @@ func (bm *Manager) backupStatefulSets(ctx context.Context, namespace string) err
 			bm.logger.Infof("Would backup stateful set: %s/%s", namespace, statefulSet.Name)
 		} else {
 			if err := bm.saveResource(statefulSet, "StatefulSet", filename); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
 
 // backupHorizontalPodAutoscalers backs up all horizontal pod autoscalers in a given namespace.
 func (bm *Manager) backupHorizontalPodAutoscalers(ctx context.Context, namespace string) error {

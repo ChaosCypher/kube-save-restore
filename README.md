@@ -32,7 +32,7 @@ Kubernetes Backup & Restore is a robust and user-friendly tool designed to simpl
 
 ## Features
 
-- **Comprehensive Backup**: Capture deployments, services, config maps, secrets, stateful sets, and more across all namespaces.
+- **Comprehensive Backup**: Capture deployments, services, config maps, secrets, statefulsets, and more across all namespaces.
 - **Seamless Restore**: Restore your Kubernetes resources with ease, ensuring minimal downtime.
 - **Dry Run Mode**: Validate backup and restore operations without making actual changes.
 - **Concurrent Processing**: Utilize worker pools for efficient handling of multiple resources.

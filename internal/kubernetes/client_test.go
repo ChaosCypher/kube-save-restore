@@ -233,7 +233,7 @@ func TestListStatefulSets(t *testing.T) {
 	})}
 
 	statefulSets, err := client.ListStatefulSets(context.Background(), "default")
-  if err != nil {
+	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
@@ -243,7 +243,7 @@ func TestListStatefulSets(t *testing.T) {
 
 	if statefulSets.Items[0].Name != "test-statefulset" {
 		t.Fatalf("expected statefulset name to be 'test-statefulset', got %s", statefulSets.Items[0].Name)
-  }
+	}
 }
 
 func TestListHorizontalPodAutoscalers(t *testing.T) {

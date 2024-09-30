@@ -104,14 +104,17 @@ func applySecret(client *kubernetes.Client, data []byte, namespace string) error
 // applyStatefulSet applies a StatefulSet resource to the Kubernetes cluster.
 func applyStatefulSet(client *kubernetes.Client, data []byte, namespace string) error {
 	var statefulSet appsv1.StatefulSet
-  // Unmarshal the JSON data into a StatefulSet object
+	// Unmarshal the JSON data into a StatefulSet object
 	if err := json.Unmarshal(data, &statefulSet); err != nil {
 		return fmt.Errorf("error unmarshaling stateful set: %v", err)
 	}
-  // Try to update the StatefulSet, if it does not exist, create it
+	// Try to update the StatefulSet, if it does not exist, create it
 	_, err := client.Clientset.AppsV1().StatefulSets(namespace).Update(context.TODO(), &statefulSet, metav1.UpdateOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		_, err = client.Clientset.AppsV1().StatefulSets(namespace).Create(context.TODO(), &statefulSet, metav1.CreateOptions{})
+	}
+	return err
+}
 
 // applyHorizontalPodAutoscalers applies a HorizontalPodAutoscaler resource to the Kubernetes cluster.
 func applyHorizontalPodAutoscalers(client *kubernetes.Client, data []byte, namespace string) error {
