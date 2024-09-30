@@ -8,6 +8,7 @@ import (
 
 	"github.com/chaoscypher/k8s-backup-restore/internal/kubernetes"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +32,8 @@ func applyResource(client *kubernetes.Client, resource map[string]interface{}, k
 		return applyConfigMap(client, adjustedData, namespace)
 	case "Secret":
 		return applySecret(client, adjustedData, namespace)
+	case "HorizontalPodAutoscaler":
+		return applyHorizontalPodAutoscalers(client, adjustedData, namespace)
 	default:
 		return fmt.Errorf("unsupported resource kind: %s", kind)
 	}
@@ -92,6 +95,21 @@ func applySecret(client *kubernetes.Client, data []byte, namespace string) error
 	_, err := client.Clientset.CoreV1().Secrets(namespace).Update(context.TODO(), &secret, metav1.UpdateOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		_, err = client.Clientset.CoreV1().Secrets(namespace).Create(context.TODO(), &secret, metav1.CreateOptions{})
+	}
+	return err
+}
+
+// applyHorizontalPodAutoscalers applies a HorizontalPodAutoscaler resource to the Kubernetes cluster.
+func applyHorizontalPodAutoscalers(client *kubernetes.Client, data []byte, namespace string) error {
+	var hpa autoscalingv2.HorizontalPodAutoscaler
+	// Unmarshal the JSON data into a HorizontalPodAutoscaler object
+	if err := json.Unmarshal(data, &hpa); err != nil {
+		return fmt.Errorf("error unmarshaling hpa: %v", err)
+	}
+	// Try to update the HorizontalPodAutoscaler, if it does not exist, create it
+	_, err := client.Clientset.AutoscalingV2().HorizontalPodAutoscalers(namespace).Update(context.TODO(), &hpa, metav1.UpdateOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		_, err = client.Clientset.AutoscalingV2().HorizontalPodAutoscalers(namespace).Create(context.TODO(), &hpa, metav1.CreateOptions{})
 	}
 	return err
 }

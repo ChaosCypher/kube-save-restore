@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -223,5 +224,24 @@ func TestListServices(t *testing.T) {
 
 	if services.Items[0].Name != "test-service" {
 		t.Fatalf("expected service name to be 'test-service', got %s", services.Items[0].Name)
+	}
+}
+
+func TestListHorizontalPodAutoscalers(t *testing.T) {
+	client := &Client{Clientset: fake.NewSimpleClientset(&autoscalingv2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-hpa", Namespace: "default"},
+	})}
+
+	hpas, err := client.ListHorizontalPodAutoscalers(context.Background(), "default")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if len(hpas.Items) != 1 {
+		t.Fatalf("expected 1 hpa, got %d", len(hpas.Items))
+	}
+
+	if hpas.Items[0].Name != "test-hpa" {
+		t.Fatalf("expected hpa name to be 'test-hpa', got %s", hpas.Items[0].Name)
 	}
 }

@@ -14,6 +14,7 @@ type ClientInterface interface {
 	NamespaceLister
 	SecretLister
 	ServiceLister
+	HorizontalPodAutoscalerLister
 }
 
 // Client implements the ClientInterface

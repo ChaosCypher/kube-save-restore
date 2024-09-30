@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -48,6 +49,12 @@ func (m *MockKubernetesClient) ListSecrets(ctx context.Context, namespace string
 	return args.Get(0).(*corev1.SecretList), args.Error(1)
 }
 
+// ListHorizontalPodAutoscalers mocks the ListHorizontalPodAutoscalers method of the KubernetesClient interface.
+func (m *MockKubernetesClient) ListHorizontalPodAutoscalers(ctx context.Context, namespace string) (*autoscalingv2.HorizontalPodAutoscalerList, error) {
+	args := m.Called(ctx, namespace)
+	return args.Get(0).(*autoscalingv2.HorizontalPodAutoscalerList), args.Error(1)
+}
+
 // setupMockClient creates and configures a MockKubernetesClient with default expectations.
 func setupMockClient() *MockKubernetesClient {
 	mockClient := new(MockKubernetesClient)
@@ -56,6 +63,7 @@ func setupMockClient() *MockKubernetesClient {
 	mockClient.On("ListServices", mock.Anything, "default").Return(&corev1.ServiceList{}, nil)
 	mockClient.On("ListConfigMaps", mock.Anything, "default").Return(&corev1.ConfigMapList{}, nil)
 	mockClient.On("ListSecrets", mock.Anything, "default").Return(&corev1.SecretList{}, nil)
+	mockClient.On("ListHorizontalPodAutoscalers", mock.Anything, "default").Return(&autoscalingv2.HorizontalPodAutoscalerList{}, nil)
 	return mockClient
 }
 
