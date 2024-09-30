@@ -25,6 +25,9 @@ type KubernetesClient interface {
 	// ListSecrets returns a list of all secrets in the specified namespace.
 	ListSecrets(ctx context.Context, namespace string) (*corev1.SecretList, error)
 
+	// ListStatefulSets returns a list of all stateful sets in the specified namespace.
+	ListStatefulSets(ctx context.Context, namespace string) (*appsv1.StatefulSetList, error)
+
 	// ListHorizontalPodAutoscalers returns a list of all horizontal pod autoscalers in the specified namespace.
 	ListHorizontalPodAutoscalers(ctx context.Context, namespace string) (*autoscalingv2.HorizontalPodAutoscalerList, error)
 }

@@ -674,4 +674,107 @@ func TestBackupAndRestoreService(t *testing.T) {
 	}
 }
 
+func TestBackupAndRestoreStatefulSet(t *testing.T) {
+	ctx := context.Background()
+	testNamespace := "test-statefulset-namespace"
+	statefulsetName := "test-statefulset"
+
+	// Setup test configuration
+	testConfig := &config.Config{
+		Mode:       "backup",
+		BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
+		KubeConfig: getTestKubeconfig(t),
+		Context:    "minikube",
+		DryRun:     false,
+	}
+
+	// Setup logger
+	log := logger.SetupLogger(testConfig)
+
+	// Create Kubernetes client
+	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context)
+	if err != nil {
+		t.Fatalf("Failed to create Kubernetes client: %v", err)
+	}
+
+	// Create the test namespace
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNamespace,
+		},
+	}
+	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create namespace: %v", err)
+	}
+
+	// Create a simple statefulset
+	statefulset := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      statefulsetName,
+			Namespace: testNamespace,
+		},
+		Spec: appsv1.StatefulSetSpec{
+			Replicas: int32Ptr(1),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "test"},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "test"},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "nginx",
+							Image: "nginx:latest",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	_, err = kubeClient.Clientset.AppsV1().StatefulSets(testNamespace).Create(ctx, statefulset, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create statefulset: %v", err)
+	}
+
+	// Perform backup
+	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
+	err = backupManager.PerformBackup(ctx)
+	if err != nil {
+		t.Fatalf("Backup failed: %v", err)
+	}
+
+	// Edit the statefulset
+	statefulset, err = kubeClient.Clientset.AppsV1().StatefulSets(testNamespace).Get(ctx, statefulsetName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get statefulset: %v", err)
+	}
+	statefulset.Spec.Replicas = int32Ptr(2)
+	_, err = kubeClient.Clientset.AppsV1().StatefulSets(testNamespace).Update(ctx, statefulset, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to update statefulset: %v", err)
+	}
+
+	// Perform restore
+	testConfig.Mode = "restore"
+	testConfig.RestoreDir = testConfig.BackupDir
+	restoreManager := restore.NewManager(kubeClient, log)
+	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
+	if err != nil {
+		t.Fatalf("Restore failed: %v", err)
+	}
+
+	// Confirm the statefulset's settings were restored
+	statefulset, err = kubeClient.Clientset.AppsV1().StatefulSets(testNamespace).Get(ctx, statefulsetName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get statefulset: %v", err)
+	}
+	if *statefulset.Spec.Replicas != 1 {
+		t.Fatalf("Expected replicas to be 1, got %d", *statefulset.Spec.Replicas)
+	}
+}
+
 func int32Ptr(i int32) *int32 { return &i }

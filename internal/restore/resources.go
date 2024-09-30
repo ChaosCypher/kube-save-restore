@@ -32,6 +32,8 @@ func applyResource(client *kubernetes.Client, resource map[string]interface{}, k
 		return applyConfigMap(client, adjustedData, namespace)
 	case "Secret":
 		return applySecret(client, adjustedData, namespace)
+	case "StatefulSet":
+		return applyStatefulSet(client, adjustedData, namespace)
 	case "HorizontalPodAutoscaler":
 		return applyHorizontalPodAutoscalers(client, adjustedData, namespace)
 	default:
@@ -99,6 +101,21 @@ func applySecret(client *kubernetes.Client, data []byte, namespace string) error
 	return err
 }
 
+// applyStatefulSet applies a StatefulSet resource to the Kubernetes cluster.
+func applyStatefulSet(client *kubernetes.Client, data []byte, namespace string) error {
+	var statefulSet appsv1.StatefulSet
+	// Unmarshal the JSON data into a StatefulSet object
+	if err := json.Unmarshal(data, &statefulSet); err != nil {
+		return fmt.Errorf("error unmarshaling stateful set: %v", err)
+	}
+	// Try to update the StatefulSet, if it does not exist, create it
+	_, err := client.Clientset.AppsV1().StatefulSets(namespace).Update(context.TODO(), &statefulSet, metav1.UpdateOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		_, err = client.Clientset.AppsV1().StatefulSets(namespace).Create(context.TODO(), &statefulSet, metav1.CreateOptions{})
+	}
+	return err
+}
+
 // applyHorizontalPodAutoscalers applies a HorizontalPodAutoscaler resource to the Kubernetes cluster.
 func applyHorizontalPodAutoscalers(client *kubernetes.Client, data []byte, namespace string) error {
 	var hpa autoscalingv2.HorizontalPodAutoscaler
@@ -110,6 +127,7 @@ func applyHorizontalPodAutoscalers(client *kubernetes.Client, data []byte, names
 	_, err := client.Clientset.AutoscalingV2().HorizontalPodAutoscalers(namespace).Update(context.TODO(), &hpa, metav1.UpdateOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		_, err = client.Clientset.AutoscalingV2().HorizontalPodAutoscalers(namespace).Create(context.TODO(), &hpa, metav1.CreateOptions{})
+
 	}
 	return err
 }

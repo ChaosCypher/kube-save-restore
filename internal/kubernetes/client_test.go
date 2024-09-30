@@ -227,12 +227,32 @@ func TestListServices(t *testing.T) {
 	}
 }
 
+func TestListStatefulSets(t *testing.T) {
+	client := &Client{Clientset: fake.NewSimpleClientset(&appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-statefulset", Namespace: "default"},
+	})}
+
+	statefulSets, err := client.ListStatefulSets(context.Background(), "default")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if len(statefulSets.Items) != 1 {
+		t.Fatalf("expected 1 statefulset, got %d", len(statefulSets.Items))
+	}
+
+	if statefulSets.Items[0].Name != "test-statefulset" {
+		t.Fatalf("expected statefulset name to be 'test-statefulset', got %s", statefulSets.Items[0].Name)
+	}
+}
+
 func TestListHorizontalPodAutoscalers(t *testing.T) {
 	client := &Client{Clientset: fake.NewSimpleClientset(&autoscalingv2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-hpa", Namespace: "default"},
 	})}
 
 	hpas, err := client.ListHorizontalPodAutoscalers(context.Background(), "default")
+
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
