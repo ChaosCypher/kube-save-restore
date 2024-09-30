@@ -4,6 +4,7 @@ import (
 	"context"
 
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -26,4 +27,7 @@ type KubernetesClient interface {
 
 	// ListStatefulSets returns a list of all stateful sets in the specified namespace.
 	ListStatefulSets(ctx context.Context, namespace string) (*appsv1.StatefulSetList, error)
+
+	// ListHorizontalPodAutoscalers returns a list of all horizontal pod autoscalers in the specified namespace.
+	ListHorizontalPodAutoscalers(ctx context.Context, namespace string) (*autoscalingv2.HorizontalPodAutoscalerList, error)
 }

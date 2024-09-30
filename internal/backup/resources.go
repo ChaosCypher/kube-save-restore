@@ -20,6 +20,8 @@ func (bm *Manager) backupResource(ctx context.Context, resourceType, namespace s
 		err = bm.backupSecrets(ctx, namespace)
 	case "statefulsets":
 		err = bm.backupStatefulSets(ctx, namespace)
+	case "hpas":
+		err = bm.backupHorizontalPodAutoscalers(ctx, namespace)
 	default:
 		return fmt.Errorf("unknown resource type: %s", resourceType)
 	}
@@ -123,6 +125,21 @@ func (bm *Manager) backupStatefulSets(ctx context.Context, namespace string) err
 			bm.logger.Infof("Would backup stateful set: %s/%s", namespace, statefulSet.Name)
 		} else {
 			if err := bm.saveResource(statefulSet, "StatefulSet", filename); err != nil {
+
+// backupHorizontalPodAutoscalers backs up all horizontal pod autoscalers in a given namespace.
+func (bm *Manager) backupHorizontalPodAutoscalers(ctx context.Context, namespace string) error {
+	hpas, err := bm.client.ListHorizontalPodAutoscalers(ctx, namespace)
+	if err != nil {
+		return fmt.Errorf("error listing HPAs in namespace %s: %v", namespace, err)
+	}
+
+	for _, hpa := range hpas.Items {
+		filename := filepath.Join(bm.backupDir, namespace, "hpas", hpa.Name+".json")
+		if bm.dryRun {
+			bm.logger.Infof("Would backup HPA: %s/%s", namespace, hpa.Name)
+		} else {
+			if err := bm.saveResource(hpa, "HorizontalPodAutoscaler", filename); err != nil {
+
 				return err
 			}
 		}

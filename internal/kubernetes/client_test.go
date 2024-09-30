@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -232,7 +233,7 @@ func TestListStatefulSets(t *testing.T) {
 	})}
 
 	statefulSets, err := client.ListStatefulSets(context.Background(), "default")
-	if err != nil {
+  if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
@@ -242,5 +243,25 @@ func TestListStatefulSets(t *testing.T) {
 
 	if statefulSets.Items[0].Name != "test-statefulset" {
 		t.Fatalf("expected statefulset name to be 'test-statefulset', got %s", statefulSets.Items[0].Name)
+  }
+}
+
+func TestListHorizontalPodAutoscalers(t *testing.T) {
+	client := &Client{Clientset: fake.NewSimpleClientset(&autoscalingv2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-hpa", Namespace: "default"},
+	})}
+
+	hpas, err := client.ListHorizontalPodAutoscalers(context.Background(), "default")
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if len(hpas.Items) != 1 {
+		t.Fatalf("expected 1 hpa, got %d", len(hpas.Items))
+	}
+
+	if hpas.Items[0].Name != "test-hpa" {
+		t.Fatalf("expected hpa name to be 'test-hpa', got %s", hpas.Items[0].Name)
 	}
 }
