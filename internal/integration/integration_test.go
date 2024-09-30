@@ -16,6 +16,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // TestRunBackup tests the backup functionality of the application.
@@ -180,7 +181,7 @@ func getTestKubeconfig(t *testing.T) string {
 
 func TestBackupAndRestoreDeployment(t *testing.T) {
 	ctx := context.Background()
-	testNamespace := "test-namespace"
+	testNamespace := "test-deployment-namespace"
 	deploymentName := "test-deployment"
 
 	// Setup test configuration
@@ -278,6 +279,365 @@ func TestBackupAndRestoreDeployment(t *testing.T) {
 	}
 	if *deployment.Spec.Replicas != 1 {
 		t.Fatalf("Expected replicas to be 1, got %d", *deployment.Spec.Replicas)
+	}
+}
+
+func TestBackupAndRestoreHorizontalPodAutoscaler(t *testing.T) {
+	ctx := context.Background()
+	testNamespace := "test-hpa-namespace"
+	hpaName := "test-hpa"
+
+	// Setup test configuration
+	testConfig := &config.Config{
+		Mode:       "backup",
+		BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
+		KubeConfig: getTestKubeconfig(t),
+		Context:    "minikube",
+		DryRun:     false,
+	}
+
+	// Setup logger
+	log := logger.SetupLogger(testConfig)
+
+	// Create Kubernetes client
+	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context)
+	if err != nil {
+		t.Fatalf("Failed to create Kubernetes client: %v", err)
+	}
+
+	// Create the test namespace
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNamespace,
+		},
+	}
+	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create namespace: %v", err)
+	}
+
+	// Create a simple HorizontalPodAutoscaler
+	hpa := &autoscalingv2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      hpaName,
+			Namespace: testNamespace,
+		},
+		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+			ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       deploymentName,
+			},
+			MinReplicas: int32Ptr(1),
+			MaxReplicas: 10,
+		},
+	}
+	_, err = kubeClient.Clientset.AutoscalingV2().HorizontalPodAutoscalers(testNamespace).Create(ctx, hpa, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create HorizontalPodAutoscaler: %v", err)
+	}
+
+	// Perform backup
+	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
+	err = backupManager.PerformBackup(ctx)
+	if err != nil {
+		t.Fatalf("Backup failed: %v", err)
+	}
+
+	// Edit the HPA
+	hpa, err = kubeClient.Clientset.AutoscalingV2().HorizontalPodAutoscalers(testNamespace).Get(ctx, hpaName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get HorizontalPodAutoscaler: %v", err)
+	}
+	hpa.Spec.MinReplicas = int32Ptr(2)
+	_, err = kubeClient.Clientset.AutoscalingV2().HorizontalPodAutoscalers(testNamespace).Update(ctx, hpa, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to update HorizontalPodAutoscaler: %v", err)
+	}
+
+	// Perform restore
+	testConfig.Mode = "restore"
+	testConfig.RestoreDir = testConfig.BackupDir
+	restoreManager := restore.NewManager(kubeClient, log)
+	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
+	if err != nil {
+		t.Fatalf("Restore failed: %v", err)
+	}
+
+	// Confirm the HPA's settings were restored
+	hpa, err = kubeClient.Clientset.AutoscalingV2().HorizontalPodAutoscalers(testNamespace).Get(ctx, hpaName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get HorizontalPodAutoscaler: %v", err)
+	}
+	if *hpa.Spec.MinReplicas != 1 {
+		t.Fatalf("Expected min replicas to be 1, got %d", *hpa.Spec.MinReplicas)
+	}
+}
+
+func TestBackupAndRestoreSecret(t *testing.T) {
+	ctx := context.Background()
+	testNamespace := "test-secret-namespace"
+	secretName := "test-secret"
+
+	// Setup test configuration
+	testConfig := &config.Config{
+		Mode:       "backup",
+		BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
+		KubeConfig: getTestKubeconfig(t),
+		Context:    "minikube",
+		DryRun:     false,
+	}
+
+	// Setup logger
+	log := logger.SetupLogger(testConfig)
+
+	// Create Kubernetes client
+	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context)
+	if err != nil {
+		t.Fatalf("Failed to create Kubernetes client: %v", err)
+	}
+
+	// Create the test namespace
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNamespace,
+		},
+	}
+	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create namespace: %v", err)
+	}
+
+	// Create a simple Secret
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: testNamespace,
+		},
+		Data: map[string][]byte{
+			"username": []byte("admin"),
+			"password": []byte("admin"),
+		},
+	}
+	_, err = kubeClient.Clientset.CoreV1().Secrets(testNamespace).Create(ctx, secret, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create Secret: %v", err)
+	}
+
+	// Perform backup
+	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
+	err = backupManager.PerformBackup(ctx)
+	if err != nil {
+		t.Fatalf("Backup failed: %v", err)
+	}
+
+	// Edit the Secret
+	secret, err = kubeClient.Clientset.CoreV1().Secrets(testNamespace).Get(ctx, secretName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get Secret: %v", err)
+	}
+	secret.Data["password"] = []byte("newpassword")
+	_, err = kubeClient.Clientset.CoreV1().Secrets(testNamespace).Update(ctx, secret, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to update Secret: %v", err)
+	}
+
+	// Perform restore
+	testConfig.Mode = "restore"
+	testConfig.RestoreDir = testConfig.BackupDir
+	restoreManager := restore.NewManager(kubeClient, log)
+	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
+	if err != nil {
+		t.Fatalf("Restore failed: %v", err)
+	}
+
+	// Confirm the Secret's settings were restored
+	secret, err = kubeClient.Clientset.CoreV1().Secrets(testNamespace).Get(ctx, secretName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get Secret: %v", err)
+	}
+	if _, ok := secret.Data["password"]; !ok {
+		t.Fatalf("Expected password to be restored, but it was not found")
+	}
+}
+
+func TestBackupAndRestoreConfigMap(t *testing.T) {
+	ctx := context.Background()
+	testNamespace := "test-configmap-namespace"
+	configMapName := "test-configmap"
+
+	// Setup test configuration
+	testConfig := &config.Config{
+		Mode:       "backup",
+		BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
+		KubeConfig: getTestKubeconfig(t),
+		Context:    "minikube",
+		DryRun:     false,
+	}
+
+	// Setup logger
+	log := logger.SetupLogger(testConfig)
+
+	// Create Kubernetes client
+	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context)
+	if err != nil {
+		t.Fatalf("Failed to create Kubernetes client: %v", err)
+	}
+
+	// Create the test namespace
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNamespace,
+		},
+	}
+	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create namespace: %v", err)
+	}
+
+	// Create a simple ConfigMap
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      configMapName,
+			Namespace: testNamespace,
+		},
+		Data: map[string]string{
+			"config": "value",
+		},
+	}
+	_, err = kubeClient.Clientset.CoreV1().ConfigMaps(testNamespace).Create(ctx, configMap, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create ConfigMap: %v", err)
+	}
+
+	// Perform backup
+	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
+	err = backupManager.PerformBackup(ctx)
+	if err != nil {
+		t.Fatalf("Backup failed: %v", err)
+	}
+
+	// Edit the ConfigMap
+	configMap, err = kubeClient.Clientset.CoreV1().ConfigMaps(testNamespace).Get(ctx, configMapName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get ConfigMap: %v", err)
+	}
+	configMap.Data["config"] = "newvalue"
+	_, err = kubeClient.Clientset.CoreV1().ConfigMaps(testNamespace).Update(ctx, configMap, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to update ConfigMap: %v", err)
+	}
+
+	// Perform restore
+	testConfig.Mode = "restore"
+	testConfig.RestoreDir = testConfig.BackupDir
+	restoreManager = restore.NewManager(kubeClient, log)
+	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
+	if err != nil {
+		t.Fatalf("Restore failed: %v", err)
+	}
+
+	// Confirm the ConfigMap's settings were restored
+	configMap, err = kubeClient.Clientset.CoreV1().ConfigMaps(testNamespace).Get(ctx, configMapName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get ConfigMap: %v", err)
+	}
+	if _, ok := configMap.Data["config"]; !ok {
+		t.Fatalf("Expected config to be restored, but it was not found")
+	}
+}
+
+func TestBackupAndRestoreService(t *testing.T) {
+	ctx := context.Background()
+	testNamespace := "test-service-namespace"
+	serviceName := "test-service"
+
+	// Setup test configuration
+	testConfig := &config.Config{
+		Mode:       "backup",
+		BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
+		KubeConfig: getTestKubeconfig(t),
+		Context:    "minikube",
+		DryRun:     false,
+	}
+
+	// Setup logger
+	log := logger.SetupLogger(testConfig)
+
+	// Create Kubernetes client
+	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context)
+	if err != nil {
+		t.Fatalf("Failed to create Kubernetes client: %v", err)
+	}
+
+	// Create the test namespace
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNamespace,
+		},
+	}
+	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create namespace: %v", err)
+	}
+
+	// Create a simple Service
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceName,
+			Namespace: testNamespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{"app": "test"},
+			Type:     corev1.ServiceTypeClusterIP,
+			Ports: []corev1.ServicePort{
+				{
+					Protocol:   corev1.ProtocolTCP,
+					Port:       80,
+					TargetPort: intstr.FromInt(80),
+				},
+			},
+		},
+	}
+	_, err = kubeClient.Clientset.CoreV1().Services(testNamespace).Create(ctx, service, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create Service: %v", err)
+	}
+
+	// Perform backup
+	backupManager = backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
+	err = backupManager.PerformBackup(ctx)
+	if err != nil {
+		t.Fatalf("Backup failed: %v", err)
+	}
+
+	// Edit the Service
+	service, err = kubeClient.Clientset.CoreV1().Services(testNamespace).Get(ctx, serviceName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get Service: %v", err)
+	}
+	service.Spec.Type = corev1.ServiceTypeLoadBalancer
+	_, err = kubeClient.Clientset.CoreV1().Services(testNamespace).Update(ctx, service, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to update Service: %v", err)
+	}
+
+	// Perform restore
+	testConfig.Mode = "restore"
+	testConfig.RestoreDir = testConfig.BackupDir
+	restoreManager = restore.NewManager(kubeClient, log)
+	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
+	if err != nil {
+		t.Fatalf("Restore failed: %v", err)
+	}
+
+	// Confirm the Service's settings were restored
+	service, err = kubeClient.Clientset.CoreV1().Services(testNamespace).Get(ctx, serviceName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get Service: %v", err)
+	}
+	if service.Spec.Type != corev1.ServiceTypeClusterIP {
+		t.Fatalf("Expected service type to be ClusterIP, got %v", service.Spec.Type)
 	}
 }
 
