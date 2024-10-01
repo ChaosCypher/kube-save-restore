@@ -12,6 +12,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
 )
 
 // TestNewClient tests the NewClient function with various scenarios.
@@ -22,7 +23,10 @@ func TestNewClient(t *testing.T) {
 		kubeconfig      string
 		context         string
 		setupKubeconfig func(dir string) (string, error)
+		configModifier  ConfigModifier
 		expectError     bool
+		expectedQPS     float32
+		expectedBurst   int
 	}{
 		{
 			name:        "Valid kubeconfig and context",
@@ -88,6 +92,41 @@ users:
 				return filePath, err
 			},
 		},
+		{
+			name:        "Check QPS and Burst values",
+			context:     "test-context",
+			expectError: false,
+			setupKubeconfig: func(dir string) (string, error) {
+				kubeconfigContent := `
+apiVersion: v1
+clusters:
+- cluster:
+    server: https://checkmyrizz.com
+  name: test-cluster
+contexts:
+- context:
+    cluster: test-cluster
+    user: test-user
+  name: test-context
+current-context: test-context
+kind: Config
+preferences: {}
+users:
+- name: test-user
+  user:
+    token: test-token
+`
+				filePath := filepath.Join(dir, "kubeconfig.yaml")
+				err := os.WriteFile(filePath, []byte(kubeconfigContent), 0644)
+				return filePath, err
+			},
+			configModifier: func(config *rest.Config) {
+				config.QPS = 50.0
+				config.Burst = 100
+			},
+			expectedQPS:   50.0,
+			expectedBurst: 100,
+		},
 	}
 
 	for _, tt := range tests {
@@ -112,8 +151,8 @@ users:
 				kubeconfigPath = tt.kubeconfig
 			}
 
-			// Call NewClient
-			client, err := NewClient(kubeconfigPath, tt.context)
+			// Call NewClient with the test's configModifier
+			client, err := NewClient(kubeconfigPath, tt.context, tt.configModifier)
 
 			if tt.expectError {
 				if err == nil {
@@ -126,6 +165,19 @@ users:
 				}
 				if client == nil {
 					t.Fatalf("Expected client but got nil")
+				}
+
+				// Check QPS and Burst values
+				if tt.configModifier != nil {
+					dummyConfig := &rest.Config{}
+					tt.configModifier(dummyConfig)
+
+					if dummyConfig.QPS != tt.expectedQPS {
+						t.Errorf("Expected QPS to be %v, got %v", tt.expectedQPS, dummyConfig.QPS)
+					}
+					if dummyConfig.Burst != tt.expectedBurst {
+						t.Errorf("Expected Burst to be %v, got %v", tt.expectedBurst, dummyConfig.Burst)
+					}
 				}
 			}
 		})

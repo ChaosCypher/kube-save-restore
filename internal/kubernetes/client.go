@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -23,14 +24,29 @@ type Client struct {
 	Clientset kubernetes.Interface
 }
 
+// ConfigModifier is a function type that modifies a rest.Config
+type ConfigModifier func(*rest.Config)
+
+// DefaultConfigModifier sets default QPS and Burst values
+func DefaultConfigModifier(config *rest.Config) {
+	config.QPS = 50.0
+	config.Burst = 100
+}
+
 // NewClient creates a new Client instance
-func NewClient(kubeconfigPath, context string) (*Client, error) {
-	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+func NewClient(kubeconfigPath, context string, modifier ConfigModifier) (*Client, error) {
+	loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
 		&clientcmd.ConfigOverrides{CurrentContext: context},
-	).ClientConfig()
+	)
+
+	config, err := loader.ClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load kubeconfig: %w", err)
+	}
+
+	if modifier != nil {
+		modifier(config)
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)

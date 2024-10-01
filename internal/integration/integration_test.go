@@ -52,7 +52,7 @@ func TestRunBackup(t *testing.T) {
 			logger := logger.SetupLogger(testConfig)
 
 			// Create Kubernetes client
-			kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context)
+			kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
 			if err != nil {
 				t.Fatalf("Failed to create Kubernetes client: %v", err)
 			}
@@ -133,7 +133,7 @@ func TestRunRestore(t *testing.T) {
 			logger := logger.SetupLogger(testConfig)
 
 			// Create Kubernetes client
-			kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context)
+			kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
 			if err != nil {
 				t.Fatalf("Failed to create Kubernetes client: %v", err)
 			}
@@ -198,7 +198,7 @@ func TestBackupAndRestoreDeployment(t *testing.T) {
 	log := logger.SetupLogger(testConfig)
 
 	// Create Kubernetes client
-	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context)
+	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
 	if err != nil {
 		t.Fatalf("Failed to create Kubernetes client: %v", err)
 	}
@@ -302,7 +302,7 @@ func TestBackupAndRestoreHorizontalPodAutoscaler(t *testing.T) {
 	log := logger.SetupLogger(testConfig)
 
 	// Create Kubernetes client
-	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context)
+	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
 	if err != nil {
 		t.Fatalf("Failed to create Kubernetes client: %v", err)
 	}
@@ -425,7 +425,7 @@ func TestBackupAndRestoreSecret(t *testing.T) {
 	log := logger.SetupLogger(testConfig)
 
 	// Create Kubernetes client
-	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context)
+	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
 	if err != nil {
 		t.Fatalf("Failed to create Kubernetes client: %v", err)
 	}
@@ -512,7 +512,7 @@ func TestBackupAndRestoreConfigMap(t *testing.T) {
 	log := logger.SetupLogger(testConfig)
 
 	// Create Kubernetes client
-	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context)
+	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
 	if err != nil {
 		t.Fatalf("Failed to create Kubernetes client: %v", err)
 	}
@@ -598,7 +598,7 @@ func TestBackupAndRestoreService(t *testing.T) {
 	log := logger.SetupLogger(testConfig)
 
 	// Create Kubernetes client
-	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context)
+	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
 	if err != nil {
 		t.Fatalf("Failed to create Kubernetes client: %v", err)
 	}
@@ -692,7 +692,7 @@ func TestBackupAndRestoreStatefulSet(t *testing.T) {
 	log := logger.SetupLogger(testConfig)
 
 	// Create Kubernetes client
-	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context)
+	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
 	if err != nil {
 		t.Fatalf("Failed to create Kubernetes client: %v", err)
 	}
