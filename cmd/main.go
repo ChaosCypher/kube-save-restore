@@ -8,11 +8,11 @@ import (
 
 	"context"
 
-	"github.com/chaoscypher/k8s-backup-restore/internal/backup"
-	"github.com/chaoscypher/k8s-backup-restore/internal/config"
-	"github.com/chaoscypher/k8s-backup-restore/internal/kubernetes"
-	"github.com/chaoscypher/k8s-backup-restore/internal/logger"
-	"github.com/chaoscypher/k8s-backup-restore/internal/restore"
+	"github.com/chaoscypher/kube-save-restore/internal/backup"
+	"github.com/chaoscypher/kube-save-restore/internal/config"
+	"github.com/chaoscypher/kube-save-restore/internal/kubernetes"
+	"github.com/chaoscypher/kube-save-restore/internal/logger"
+	"github.com/chaoscypher/kube-save-restore/internal/restore"
 )
 
 // main is the entry point of the application.

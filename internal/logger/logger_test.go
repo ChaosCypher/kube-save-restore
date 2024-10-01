@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chaoscypher/k8s-backup-restore/internal/config"
+	"github.com/chaoscypher/kube-save-restore/internal/config"
 )
 
 // String returns the string representation of the LogLevel.

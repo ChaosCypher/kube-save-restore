@@ -3,7 +3,7 @@ package backup
 import (
 	"context"
 
-	"github.com/chaoscypher/k8s-backup-restore/internal/workerpool"
+	"github.com/chaoscypher/kube-save-restore/internal/workerpool"
 )
 
 func (bm *Manager) enqueueTasks(namespaces []string, wp *workerpool.WorkerPool) {

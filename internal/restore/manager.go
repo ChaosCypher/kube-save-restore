@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/chaoscypher/k8s-backup-restore/internal/kubernetes"
-	"github.com/chaoscypher/k8s-backup-restore/internal/logger"
-	"github.com/chaoscypher/k8s-backup-restore/internal/workerpool"
+	"github.com/chaoscypher/kube-save-restore/internal/kubernetes"
+	"github.com/chaoscypher/kube-save-restore/internal/logger"
+	"github.com/chaoscypher/kube-save-restore/internal/workerpool"
 )
 
 const maxConcurrency = 10

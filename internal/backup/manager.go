@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/chaoscypher/k8s-backup-restore/internal/logger"
-	"github.com/chaoscypher/k8s-backup-restore/internal/workerpool"
+	"github.com/chaoscypher/kube-save-restore/internal/logger"
+	"github.com/chaoscypher/kube-save-restore/internal/workerpool"
 )
 
 // maxConcurrency defines the maximum number of concurrent backup operations.
