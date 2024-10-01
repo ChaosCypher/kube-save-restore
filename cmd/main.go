@@ -30,7 +30,7 @@ func main() {
 func run(config *config.Config, logger logger.LoggerInterface) error {
 	kubeconfigPath := getKubeconfigPath(config.KubeConfig, logger)
 
-	k8sClient, err := kubernetes.NewClient(kubeconfigPath, config.Context)
+	k8sClient, err := kubernetes.NewClient(kubeconfigPath, config.Context, kubernetes.DefaultConfigModifier)
 	if err != nil {
 		return fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
