@@ -170,13 +170,17 @@ jobs:
 
       - name: Run Tests
         run: |
-          go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+          go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Generate Coverage HTML
+        run: |
+          go tool cover -html=coverage.out -o coverage.html
 
       - name: Upload Coverage Report
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: coverage.txt
+          path: coverage.html
 
   integration-tests:
     needs: [unit-tests]
@@ -257,10 +261,10 @@ jobs:
       - name: Cross-compile for ${{ matrix.os }}-${{ matrix.arch }}
         shell: bash
         run: |
-          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o k8s-backup-restore-${{ matrix.os }}-${{ matrix.arch }} ./cmd/main.go
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o kube-save-restore-${{ matrix.os }}-${{ matrix.arch }}
 
       - name: Upload Compiled Binaries
         uses: actions/upload-artifact@v4
         with:
-          name: k8s-backup-restore-binaries-${{ matrix.os }}-${{ matrix.arch }}
-          path: k8s-backup-restore-${{ matrix.os }}-${{ matrix.arch }}
+          name: kube-save-restore-binaries-${{ matrix.os }}-${{ matrix.arch }}
+          path: kube-save-restore-${{ matrix.os }}-${{ matrix.arch }}
