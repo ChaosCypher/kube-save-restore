@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/chaoscypher/k8s-backup-restore/internal/config"
+	"github.com/chaoscypher/kube-save-restore/internal/config"
 )
 
 // SetupLogger initializes the Logger based on the provided configuration.

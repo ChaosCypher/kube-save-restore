@@ -1,4 +1,4 @@
-module github.com/chaoscypher/k8s-backup-restore
+module github.com/chaoscypher/kube-save-restore
 
 go 1.23.1
 

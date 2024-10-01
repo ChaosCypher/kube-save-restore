@@ -6,7 +6,7 @@ import (
 
 	"context"
 
-	"github.com/chaoscypher/k8s-backup-restore/internal/kubernetes"
+	"github.com/chaoscypher/kube-save-restore/internal/kubernetes"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
