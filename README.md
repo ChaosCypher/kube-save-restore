@@ -53,20 +53,20 @@ Kubernetes Backup & Restore is a robust and user-friendly tool designed to simpl
 1. **Clone the Repository**
 
    ```bash
-   git clone https://github.com/yourusername/k8s-backup-restore.git
-   cd k8s-backup-restore
+   git clone git@github.com:ChaosCypher/kube-save-restore.git
+   cd kube-save-restore
    ```
 
 2. **Build the Binary**
 
    ```bash
-   go build -o k8s-backup-restore cmd/main.go
+   go build -o kube-save-restore
    ```
 
 3. **Move to a Directory in PATH**
 
    ```bash
-   sudo mv k8s-backup-restore /usr/local/bin/
+   sudo mv kube-save-restore /usr/local/bin/
    ```
 
 ## Usage
@@ -78,13 +78,13 @@ Kubernetes Backup & Restore offers two primary modes: `backup` and `restore`. Ea
 Perform a backup of your Kubernetes resources.
 
 ```bash
-k8s-backup-restore --mode=backup [flags]
+kube-save-restore --mode=backup [flags]
 ```
 
 **Example:**
 
 ```bash
-k8s-backup-restore --mode=backup --backup-dir=/path/to/backup --dry-run=false --log-level=info
+kube-save-restore --mode=backup --backup-dir=/path/to/backup --dry-run=false --log-level=info
 ```
 
 **Flags:**
@@ -101,13 +101,13 @@ k8s-backup-restore --mode=backup --backup-dir=/path/to/backup --dry-run=false --
 Restore your Kubernetes resources from a backup.
 
 ```bash
-k8s-backup-restore --mode=restore [flags]
+kube-save-restore --mode=restore [flags]
 ```
 
 **Example:**
 
 ```bash
-k8s-backup-restore --mode=restore --restore-dir=/path/to/backup --dry-run=true --log-level=debug
+kube-save-restore --mode=restore --restore-dir=/path/to/backup --dry-run=true --log-level=debug
 ```
 
 **Flags:**
@@ -140,7 +140,7 @@ You can configure Kubernetes Backup & Restore using command-line flags or enviro
 export MODE=backup
 export BACKUP_DIR=/path/to/backup
 export LOG_LEVEL=info
-k8s-backup-restore
+kube-save-restore
 ```
 
 ## Logging
@@ -215,4 +215,4 @@ This project is licensed under the [MIT License](LICENSE).
 
 ## Contact
 
-For any inquiries or support, please open an issue on the [GitHub repository](https://github.com/chaoscypher/k8s-backup-restore).
+For any inquiries or support, please open an issue on the [GitHub repository](https://github.com/chaoscypher/kube-save-restore).
