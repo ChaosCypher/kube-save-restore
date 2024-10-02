@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD041 -->
 <p align="center">
   <img src="assets/kube-save-restore-gopher.jpg" alt="kube-save-restore Logo" width="200" height="200">
 </p>
@@ -24,13 +25,17 @@
   <img src="https://img.shields.io/github/v/release/chaoscypher/kube-save-restore" alt="Release">
 </p>
 
+<p align="center">
+  <img src="assets/usage.gif" alt="kube-save-restore Demo" width="600">
+</p>
+
 ## Introduction
 
-Ever felt like your Kubernetes cluster was a house of cards, one misplaced yaml away from digital chaos? Enter kube-save-restore, your digital superhero cape for the Kubernetes world! This mighty tool swoops in to save the day, backing up your precious resources faster than you can say "kubectl". Whether you're juggling a cozy little cluster or wrangling a Kubernetes behemoth, kube-save-restore's got your back(up). It's like a time machine for your deployments, services, config maps, secrets, and more! - minus the paradoxes and unintended grandfather assassinations. So sit back, relax, and let kube-save-restore be your cluster's personal bodyguard against the forces of data loss and configuration mishaps!
+Ever wanted to do an old fasioned backup of your Kubernetes clusters resources? Enter kube-save-restore, your cluster's personal bodyguard. It backs up resources faster than you can say "kubectl", whether you're managing a cozy cluster or a Kubernetes behemoth. Think of it as a time machine for your cluster - minus the paradoxes! Let kube-save-restore protect you from data loss and config mishaps.
 
 ## Features
 
-🔄 **Comprehensive Backup**: Capture deployments, services, config maps, secrets, statefulsets, and more across all namespaces.
+🔄 **Comprehensive Backup**: Capture deployments, services, configmaps, secrets, statefulsets, and more across all namespaces.
 
 🚀 **Seamless Restore**: Restore your Kubernetes resources with ease, ensuring minimal downtime.
 
@@ -55,24 +60,34 @@ go install github.com/chaoscypher/kube-save-restore@latest
 ### Building from Source
 
 1. Clone the repository:
+
    ```sh
    git clone git@github.com:ChaosCypher/kube-save-restore.git
    ```
 
 2. Navigate to the project directory:
+
    ```sh
    cd kube-save-restore
    ```
 
 3. Build the binary:
+
    ```sh
    go build -o kube-save-restore
    ```
 
 4. Move the binary to your PATH:
+
    ```sh
    sudo mv kube-save-restore /usr/local/bin/
    ```
+
+5. Run the binary:
+   ```sh
+   kube-save-restore --help
+   ```
+
 ## Usage
 
 kube-save-restore offers two primary modes: `backup` and `restore`.
@@ -82,8 +97,9 @@ kube-save-restore offers two primary modes: `backup` and `restore`.
 To create a backup of your Kubernetes resources:
 
 ```sh
-kube-save-restore --mode=backup --backup-dir=/path/to/backup --dry-run=false --log-level=info
+./kube-save-restore --mode=backup --backup-dir=/path/to/backup --dry-run=false --log-level=info
 ```
+
 This command will backup all supported resources from all namespaces in your cluster.
 
 ### Restore
@@ -91,7 +107,7 @@ This command will backup all supported resources from all namespaces in your clu
 To restore your Kubernetes resources from a backup:
 
 ```sh
-kube-save-restore --mode=restore --restore-dir=/path/to/backup --dry-run=true --log-level=debug
+./kube-save-restore --mode=restore --restore-dir=/path/to/backup --dry-run=true --log-level=debug
 ```
 
 It's recommended to use the `--dry-run=true` flag first to verify the restore operation before applying changes.
@@ -105,24 +121,23 @@ It's recommended to use the `--dry-run=true` flag first to verify the restore op
 For a full list of options, run:
 
 ```sh
-kube-save-restore --help
+./kube-save-restore --help
 ```
-
 
 ## Configuration
 
 kube-save-restore can be configured using command-line flags or environment variables:
 
-| Flag            | Environment Variable | Description                                      |
-| --------------- | -------------------- | ------------------------------------------------ |
-| `--kubeconfig`  | `KUBECONFIG`         | Path to the kubeconfig file                      |
-| `--context`     | `KUBE_CONTEXT`       | Kubernetes context to use                        |
-| `--backup-dir`  | `BACKUP_DIR`         | Directory where backups will be stored           |
-| `--restore-dir` | `RESTORE_DIR`        | Directory from where backups will be restored    |
-| `--mode`        | `MODE`               | Operation mode: `backup` or `restore`            |
-| `--dry-run`     | `DRY_RUN`            | Execute a dry run without making any changes     |
-| `--log-level`   | `LOG_LEVEL`          | Logging level: `debug`, `info`, `warn`, `error`  |
-| `--log-file`    | `LOG_FILE`           | Path to the log file                             |
+| Flag            | Environment Variable | Description                                     |
+| --------------- | -------------------- | ----------------------------------------------- |
+| `--kubeconfig`  | `KUBECONFIG`         | Path to the kubeconfig file                     |
+| `--context`     | `KUBE_CONTEXT`       | Kubernetes context to use                       |
+| `--backup-dir`  | `BACKUP_DIR`         | Directory where backups will be stored          |
+| `--restore-dir` | `RESTORE_DIR`        | Directory from where backups will be restored   |
+| `--mode`        | `MODE`               | Operation mode: `backup` or `restore`           |
+| `--dry-run`     | `DRY_RUN`            | Execute a dry run without making any changes    |
+| `--log-level`   | `LOG_LEVEL`          | Logging level: `debug`, `info`, `warn`, `error` |
+| `--log-file`    | `LOG_FILE`           | Path to the log file                            |
 
 Environment variables take precedence over command-line flags.
 
@@ -132,29 +147,34 @@ We welcome contributions to kube-save-restore! Here's how you can contribute:
 
 1. **Fork the Repository**: Start by forking the [kube-save-restore repository](https://github.com/chaoscypher/kube-save-restore).
 
-2. **Clone Your Fork**: 
+2. **Clone Your Fork**:
+
    ```bash
    git clone git@github.com:YourUsername/kube-save-restore.git
    ```
 
 3. **Create a Feature Branch**:
+
    ```bash
    git checkout -b feature/YourFeature
    ```
 
-4. **Make Your Changes**: Implement your feature or bug fix.
+4. **Make Your Changes**: Implement your feature or bugfix.
 
 5. **Run Tests**: Ensure all tests pass:
+
    ```bash
    go test ./...
    ```
 
 6. **Commit Your Changes**:
+
    ```bash
    git commit -m "Add your feature"
    ```
 
 7. **Push to Your Fork**:
+
    ```bash
    git push origin feature/YourFeature
    ```
@@ -166,7 +186,7 @@ We welcome contributions to kube-save-restore! Here's how you can contribute:
 - Follow Go best practices and idiomatic Go code style.
 - Ensure your code is properly formatted using `gofmt`.
 - Write clear, concise commit messages.
-- Include tests for new features or bug fixes.
+- Include tests for new features or bugfixes.
 - Update documentation as necessary.
 
 ### Reporting Issues
