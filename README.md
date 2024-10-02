@@ -1,218 +1,192 @@
-# Kubernetes Save & Restore
+<p align="center">
+  <img src="assets/kube-save-restore-gopher.jpg" alt="kube-save-restore Logo" width="200" height="200">
+</p>
 
-```ascii
-_________ .__                        _________               .__
-\_   ___ \|  |__ _____    ____  _____\_   ___ \___.__.______ |  |__   ___________
-/    \  \/|  |  \\__  \  /  _ \/  ___/    \  \<   |  |\____ \|  |  \_/ __ \_  __ \
-\     \___|   Y  \/ __ \(  <_> )___ \\     \___\___  ||  |_> >   Y  \  ___/|  | \/
- \______  /___|  (____  /\____/____  >\______  / ____||   __/|___|  /\___  >__|
-        \/     \/     \/           \/        \/\/     |__|        \/     \/
-```
+<h1 align="center">Kube-Save-Restore</h1>
 
-## Table of Contents
+<p align="center">
+  <strong>A robust and user-friendly tool for backing up and restoring Kubernetes resources</strong>
+</p>
 
-- [Introduction](#introduction)
-- [Features](#features)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Usage](#usage)
-  - [Backup](#backup)
-  - [Restore](#restore)
-- [Configuration](#configuration)
-- [Testing](#testing)
-- [Contributing](#contributing)
-- [License](#license)
-- [Contact](#contact)
+<p align="center">
+  <a href="#introduction">Introduction</a> •
+  <a href="#features">Features</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#usage">Usage</a> •
+  <a href="#configuration">Configuration</a> •
+  <a href="#contributing">Contributing</a> •
+  <a href="#license">License</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/github/go-mod/go-version/chaoscypher/kube-save-restore" alt="Go version">
+  <img src="https://goreportcard.com/badge/github.com/chaoscypher/kube-save-restore" alt="Go Report">
+  <img src="https://img.shields.io/github/v/release/chaoscypher/kube-save-restore" alt="Release">
+</p>
 
 ## Introduction
 
-Kubernetes Backup & Restore is a robust and user-friendly tool designed to simplify the process of backing up and restoring Kubernetes resources. Whether you're managing a small cluster or a large-scale Kubernetes deployment, this tool ensures your configurations, deployments, services, config maps, and secrets are securely backed up and easily recoverable.
-
-![K8s](https://kubernetes.io/images/kubernetes-horizontal-color.png)
+Ever felt like your Kubernetes cluster was a house of cards, one misplaced yaml away from digital chaos? Enter kube-save-restore, your digital superhero cape for the Kubernetes world! This mighty tool swoops in to save the day, backing up your precious resources faster than you can say "kubectl". Whether you're juggling a cozy little cluster or wrangling a Kubernetes behemoth, kube-save-restore's got your back(up). It's like a time machine for your deployments, services, config maps, secrets, and more! - minus the paradoxes and unintended grandfather assassinations. So sit back, relax, and let kube-save-restore be your cluster's personal bodyguard against the forces of data loss and configuration mishaps!
 
 ## Features
 
-- **Comprehensive Backup**: Capture deployments, services, config maps, secrets, statefulsets, and more across all namespaces.
-- **Seamless Restore**: Restore your Kubernetes resources with ease, ensuring minimal downtime.
-- **Dry Run Mode**: Validate backup and restore operations without making actual changes.
-- **Concurrent Processing**: Utilize worker pools for efficient handling of multiple resources.
-- **Customizable Logging**: Configure log levels and output destinations to suit your monitoring needs.
-- **Configuration Flexibility**: Easily configure via flags or environment variables.
-- **Automated Testing**: Comprehensive test suite ensuring reliability and stability.
+🔄 **Comprehensive Backup**: Capture deployments, services, config maps, secrets, statefulsets, and more across all namespaces.
 
-## Prerequisites
+🚀 **Seamless Restore**: Restore your Kubernetes resources with ease, ensuring minimal downtime.
 
-- **Go**: Version 1.23.1 or higher.
-- **Kubernetes Cluster**: Access to a Kubernetes cluster with appropriate permissions.
-- **kubectl**: Configured with access to your target cluster.
+🧪 **Dry Run Mode**: Validate backup and restore operations without making actual changes.
+
+⚡ **Concurrent Processing**: Utilize worker pools for efficient handling of multiple resources.
+
+📊 **Customizable Logging**: Configure log levels and output destinations to suit your monitoring needs.
+
+🛠️ **Configuration Flexibility**: Easily configure via flags or environment variables.
+
+🧬 **Automated Testing**: Comprehensive test suite ensuring reliability and stability.
 
 ## Installation
 
+### Go Install
+
+```sh
+go install github.com/chaoscypher/kube-save-restore@latest
+```
+
 ### Building from Source
 
-1. **Clone the Repository**
-
-   ```bash
+1. Clone the repository:
+   ```sh
    git clone git@github.com:ChaosCypher/kube-save-restore.git
+   ```
+
+2. Navigate to the project directory:
+   ```sh
    cd kube-save-restore
    ```
 
-2. **Build the Binary**
-
-   ```bash
+3. Build the binary:
+   ```sh
    go build -o kube-save-restore
    ```
 
-3. **Move to a Directory in PATH**
-
-   ```bash
+4. Move the binary to your PATH:
+   ```sh
    sudo mv kube-save-restore /usr/local/bin/
    ```
-
 ## Usage
 
-Kubernetes Backup & Restore offers two primary modes: `backup` and `restore`. Each mode comes with its own set of flags to customize the operation.
+kube-save-restore offers two primary modes: `backup` and `restore`.
 
 ### Backup
 
-Perform a backup of your Kubernetes resources.
+To create a backup of your Kubernetes resources:
 
-```bash
-kube-save-restore --mode=backup [flags]
-```
-
-**Example:**
-
-```bash
+```sh
 kube-save-restore --mode=backup --backup-dir=/path/to/backup --dry-run=false --log-level=info
 ```
-
-**Flags:**
-
-- `--kubeconfig`: Path to the kubeconfig file (defaults to `$HOME/.kube/config`).
-- `--context`: Kubernetes context to use.
-- `--backup-dir`: Directory where backups will be stored.
-- `--dry-run`: Execute a dry run without making any changes.
-- `--log-level`: Logging level (`debug`, `info`, `warn`, `error`).
-- `--log-file`: Path to the log file.
+This command will backup all supported resources from all namespaces in your cluster.
 
 ### Restore
 
-Restore your Kubernetes resources from a backup.
+To restore your Kubernetes resources from a backup:
 
-```bash
-kube-save-restore --mode=restore [flags]
-```
-
-**Example:**
-
-```bash
+```sh
 kube-save-restore --mode=restore --restore-dir=/path/to/backup --dry-run=true --log-level=debug
 ```
 
-**Flags:**
+It's recommended to use the `--dry-run=true` flag first to verify the restore operation before applying changes.
 
-- `--kubeconfig`: Path to the kubeconfig file (defaults to `$HOME/.kube/config`).
-- `--context`: Kubernetes context to use.
-- `--restore-dir`: Directory from where backups will be restored.
-- `--dry-run`: Execute a dry run without making any changes.
-- `--log-level`: Logging level (`debug`, `info`, `warn`, `error`).
-- `--log-file`: Path to the log file.
+### Additional Options
+
+- Use `--context` to specify a different Kubernetes context.
+- Set `--log-file` to save logs to a file instead of stdout.
+- Adjust `--log-level` to control the verbosity of logging.
+
+For a full list of options, run:
+
+```sh
+kube-save-restore --help
+```
+
 
 ## Configuration
 
-You can configure Kubernetes Backup & Restore using command-line flags or environment variables. Environment variables take precedence over flags.
+kube-save-restore can be configured using command-line flags or environment variables:
 
 | Flag            | Environment Variable | Description                                      |
 | --------------- | -------------------- | ------------------------------------------------ |
-| `--kubeconfig`  | `KUBECONFIG`         | Path to the kubeconfig file.                     |
-| `--context`     | `KUBE_CONTEXT`       | Kubernetes context to use.                       |
-| `--backup-dir`  | `BACKUP_DIR`         | Directory where backups will be stored.          |
-| `--restore-dir` | `RESTORE_DIR`        | Directory from where backups will be restored.   |
-| `--mode`        | `MODE`               | Operation mode: `backup` or `restore`.           |
-| `--dry-run`     | `DRY_RUN`            | Execute a dry run without making any changes.    |
-| `--log-level`   | `LOG_LEVEL`          | Logging level: `debug`, `info`, `warn`, `error`. |
-| `--log-file`    | `LOG_FILE`           | Path to the log file.                            |
+| `--kubeconfig`  | `KUBECONFIG`         | Path to the kubeconfig file                      |
+| `--context`     | `KUBE_CONTEXT`       | Kubernetes context to use                        |
+| `--backup-dir`  | `BACKUP_DIR`         | Directory where backups will be stored           |
+| `--restore-dir` | `RESTORE_DIR`        | Directory from where backups will be restored    |
+| `--mode`        | `MODE`               | Operation mode: `backup` or `restore`            |
+| `--dry-run`     | `DRY_RUN`            | Execute a dry run without making any changes     |
+| `--log-level`   | `LOG_LEVEL`          | Logging level: `debug`, `info`, `warn`, `error`  |
+| `--log-file`    | `LOG_FILE`           | Path to the log file                             |
 
-**Example using Environment Variables:**
-
-```bash
-export MODE=backup
-export BACKUP_DIR=/path/to/backup
-export LOG_LEVEL=info
-kube-save-restore
-```
-
-## Logging
-
-Kubernetes Backup & Restore provides flexible logging options to help you monitor and debug operations.
-
-- **Log Levels**:
-
-  - `DEBUG`: Detailed information, typically of interest only when diagnosing problems.
-  - `INFO`: Confirmation that things are working as expected.
-  - `WARN`: An indication that something unexpected happened, or indicative of some problem in the near future.
-  - `ERROR`: Due to a more serious problem, the software has not been able to perform some function.
-
-- **Log Output**:
-  - **Standard Output**: By default, logs are written to `stdout`.
-  - **Log File**: You can specify a log file using the `--log-file` flag.
-
-## Testing
-
-The project includes comprehensive tests covering various components.
-
-### Run Unit Tests
-
-```bash
-go test -v ./...
-```
-
-### Run Integration Tests
-
-```bash
-export TEST_KUBECONFIG=<>
-go test -tags=integration -v ./...
-```
-
-### Generate Coverage Report
-
-```bash
-go test ./... -coverprofile=coverage.out
-go tool cover -html=coverage.out -o coverage.html
-```
+Environment variables take precedence over command-line flags.
 
 ## Contributing
 
-Contributions are welcome! Please follow these steps:
+We welcome contributions to kube-save-restore! Here's how you can contribute:
 
-1. **Fork the Repository**
-2. **Create a Feature Branch**
+1. **Fork the Repository**: Start by forking the [kube-save-restore repository](https://github.com/chaoscypher/kube-save-restore).
 
+2. **Clone Your Fork**: 
+   ```bash
+   git clone git@github.com:YourUsername/kube-save-restore.git
+   ```
+
+3. **Create a Feature Branch**:
    ```bash
    git checkout -b feature/YourFeature
    ```
 
-3. **Commit Your Changes**
+4. **Make Your Changes**: Implement your feature or bug fix.
 
+5. **Run Tests**: Ensure all tests pass:
+   ```bash
+   go test ./...
+   ```
+
+6. **Commit Your Changes**:
    ```bash
    git commit -m "Add your feature"
    ```
 
-4. **Push to the Branch**
-
+7. **Push to Your Fork**:
    ```bash
    git push origin feature/YourFeature
    ```
 
-5. **Open a Pull Request**
+8. **Open a Pull Request**: Go to the original kube-save-restore repository and open a pull request with your changes.
 
-Ensure that all tests pass and adhere to the project’s coding standards.
+### Coding Standards
+
+- Follow Go best practices and idiomatic Go code style.
+- Ensure your code is properly formatted using `gofmt`.
+- Write clear, concise commit messages.
+- Include tests for new features or bug fixes.
+- Update documentation as necessary.
+
+### Reporting Issues
+
+If you find a bug or have a suggestion for improvement:
+
+1. Check the [existing issues](https://github.com/chaoscypher/kube-save-restore/issues) to avoid duplicates.
+2. If your issue isn't already listed, [open a new issue](https://github.com/chaoscypher/kube-save-restore/issues/new).
+3. Clearly describe the problem or suggestion, including steps to reproduce if applicable.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+kube-save-restore is open-source software licensed under the [MIT License](LICENSE).
 
 ## Contact
 
 For any inquiries or support, please open an issue on the [GitHub repository](https://github.com/chaoscypher/kube-save-restore).
+
+---
+
+<p align="center">
+  Made with ❤️ by <a href="https://github.com/ChaosCypher">ChaosCypher</a>
+</p>
