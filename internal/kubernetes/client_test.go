@@ -9,6 +9,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -315,5 +316,24 @@ func TestListHorizontalPodAutoscalers(t *testing.T) {
 
 	if hpas.Items[0].Name != "test-hpa" {
 		t.Fatalf("expected hpa name to be 'test-hpa', got %s", hpas.Items[0].Name)
+	}
+}
+
+func TestListCronJobs(t *testing.T) {
+	client := &Client{Clientset: fake.NewSimpleClientset(&batchv1.CronJob{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-cronjob", Namespace: "default"},
+	})}
+
+	cronJobs, err := client.ListCronJobs(context.Background(), "default")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if len(cronJobs.Items) != 1 {
+		t.Fatalf("expected 1 cronjob, got %d", len(cronJobs.Items))
+	}
+
+	if cronJobs.Items[0].Name != "test-cronjob" {
+		t.Fatalf("expected cronjob name to be 'test-cronjob', got %s", cronJobs.Items[0].Name)
 	}
 }

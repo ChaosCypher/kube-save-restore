@@ -15,6 +15,7 @@ import (
 	"github.com/chaoscypher/kube-save-restore/internal/restore"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -214,7 +215,7 @@ func TestBackupAndRestoreDeployment(t *testing.T) {
 		t.Fatalf("Failed to create namespace: %v", err)
 	}
 
-	// Create a simple deployment
+	// Create a deployment
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
@@ -232,8 +233,8 @@ func TestBackupAndRestoreDeployment(t *testing.T) {
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:  "nginx",
-							Image: "nginx:latest",
+							Name:  "busybox",
+							Image: "busybox:latest",
 						},
 					},
 				},
@@ -318,7 +319,7 @@ func TestBackupAndRestoreHorizontalPodAutoscaler(t *testing.T) {
 		t.Fatalf("Failed to create namespace: %v", err)
 	}
 
-	// Create a simple Deployment
+	// Create a Deployment
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
@@ -336,8 +337,8 @@ func TestBackupAndRestoreHorizontalPodAutoscaler(t *testing.T) {
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:  "nginx",
-							Image: "nginx:latest",
+							Name:  "busybox",
+							Image: "busybox:latest",
 						},
 					},
 				},
@@ -349,7 +350,7 @@ func TestBackupAndRestoreHorizontalPodAutoscaler(t *testing.T) {
 		t.Fatalf("Failed to create deployment: %v", err)
 	}
 
-	// Create a simple HorizontalPodAutoscaler
+	// Create a HorizontalPodAutoscaler
 	hpa := &autoscalingv2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      hpaName,
@@ -441,7 +442,7 @@ func TestBackupAndRestoreSecret(t *testing.T) {
 		t.Fatalf("Failed to create namespace: %v", err)
 	}
 
-	// Create a simple Secret
+	// Create a Secret
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
@@ -528,7 +529,7 @@ func TestBackupAndRestoreConfigMap(t *testing.T) {
 		t.Fatalf("Failed to create namespace: %v", err)
 	}
 
-	// Create a simple ConfigMap
+	// Create a ConfigMap
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      configMapName,
@@ -614,7 +615,7 @@ func TestBackupAndRestoreService(t *testing.T) {
 		t.Fatalf("Failed to create namespace: %v", err)
 	}
 
-	// Create a simple Service
+	// Create a Service
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
@@ -708,7 +709,7 @@ func TestBackupAndRestoreStatefulSet(t *testing.T) {
 		t.Fatalf("Failed to create namespace: %v", err)
 	}
 
-	// Create a simple statefulset
+	// Create a statefulset
 	statefulset := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      statefulsetName,
@@ -726,8 +727,8 @@ func TestBackupAndRestoreStatefulSet(t *testing.T) {
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:  "nginx",
-							Image: "nginx:latest",
+							Name:  "busybox",
+							Image: "busybox:latest",
 						},
 					},
 				},
@@ -774,6 +775,108 @@ func TestBackupAndRestoreStatefulSet(t *testing.T) {
 	}
 	if *statefulset.Spec.Replicas != 1 {
 		t.Fatalf("Expected replicas to be 1, got %d", *statefulset.Spec.Replicas)
+	}
+}
+
+func TestBackupAndRestoreCronJob(t *testing.T) {
+	ctx := context.Background()
+	testNamespace := "test-cronjob-namespace"
+	cronJobName := "test-cronjob"
+
+	// Setup test configuration
+	testConfig := &config.Config{
+		Mode:       "backup",
+		BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
+		KubeConfig: getTestKubeconfig(t),
+		Context:    "minikube",
+		DryRun:     false,
+	}
+
+	// Setup logger
+	log := logger.SetupLogger(testConfig)
+
+	// Create Kubernetes client
+	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
+	if err != nil {
+		t.Fatalf("Failed to create Kubernetes client: %v", err)
+	}
+
+	// Create the test namespace
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNamespace,
+		},
+	}
+	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create namespace: %v", err)
+	}
+
+	// Create a CronJob
+	cronJob := &batchv1.CronJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cronJobName,
+			Namespace: testNamespace,
+		},
+		Spec: batchv1.CronJobSpec{
+			Schedule: "0 0 * * *",
+			JobTemplate: batchv1.JobTemplateSpec{
+				Spec: batchv1.JobSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "busybox",
+									Image: "busybox:latest",
+								},
+							},
+							RestartPolicy: corev1.RestartPolicyNever,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	_, err = kubeClient.Clientset.BatchV1().CronJobs(testNamespace).Create(ctx, cronJob, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create cron job: %v", err)
+	}
+
+	// Perform backup
+	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
+	err = backupManager.PerformBackup(ctx)
+	if err != nil {
+		t.Fatalf("Backup failed: %v", err)
+	}
+
+	// Edit the CronJob
+	cronJob, err = kubeClient.Clientset.BatchV1().CronJobs(testNamespace).Get(ctx, cronJobName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get cron job: %v", err)
+	}
+	cronJob.Spec.Schedule = "0 1 * * *"
+	_, err = kubeClient.Clientset.BatchV1().CronJobs(testNamespace).Update(ctx, cronJob, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to update cron job: %v", err)
+	}
+
+	// Perform restore
+	testConfig.Mode = "restore"
+	testConfig.RestoreDir = testConfig.BackupDir
+	restoreManager := restore.NewManager(kubeClient, log)
+	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
+	if err != nil {
+		t.Fatalf("Restore failed: %v", err)
+	}
+
+	// Confirm the CronJob's settings were restored
+	cronJob, err = kubeClient.Clientset.BatchV1().CronJobs(testNamespace).Get(ctx, cronJobName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get cron job: %v", err)
+	}
+	if cronJob.Spec.Schedule != "0 0 * * *" {
+		t.Fatalf("Expected schedule to be 0 0 * * *, got %s", cronJob.Spec.Schedule)
 	}
 }
 
