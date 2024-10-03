@@ -51,8 +51,15 @@ func (bm *Manager) countResources(ctx context.Context, namespaces []string) int 
 			continue
 		}
 
+		// Count cron jobs
+		cronJobs, err := bm.client.ListCronJobs(ctx, ns)
+		if err != nil {
+			bm.logger.Errorf("Error listing cron jobs in namespace %s: %v", ns, err)
+			continue
+		}
+
 		// Sum up the total number of resources
-		total += len(deployments.Items) + len(services.Items) + len(configMaps.Items) + len(secrets.Items) + len(hpas.Items) + len(statefulSets.Items)
+		total += len(deployments.Items) + len(services.Items) + len(configMaps.Items) + len(secrets.Items) + len(hpas.Items) + len(statefulSets.Items) + len(cronJobs.Items)
 	}
 	return total
 }

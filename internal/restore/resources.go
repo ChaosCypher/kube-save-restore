@@ -9,6 +9,7 @@ import (
 	"github.com/chaoscypher/kube-save-restore/internal/kubernetes"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,6 +37,8 @@ func applyResource(client *kubernetes.Client, resource map[string]interface{}, k
 		return applyStatefulSet(client, adjustedData, namespace)
 	case "HorizontalPodAutoscaler":
 		return applyHorizontalPodAutoscalers(client, adjustedData, namespace)
+	case "CronJob":
+		return applyCronJob(client, adjustedData, namespace)
 	default:
 		return fmt.Errorf("unsupported resource kind: %s", kind)
 	}
@@ -128,6 +131,21 @@ func applyHorizontalPodAutoscalers(client *kubernetes.Client, data []byte, names
 	if err != nil && errors.IsNotFound(err) {
 		_, err = client.Clientset.AutoscalingV2().HorizontalPodAutoscalers(namespace).Create(context.TODO(), &hpa, metav1.CreateOptions{})
 
+	}
+	return err
+}
+
+// applyCronJob applies a CronJob resource to the Kubernetes cluster.
+func applyCronJob(client *kubernetes.Client, data []byte, namespace string) error {
+	var cronJob batchv1.CronJob
+	// Unmarshal the JSON data into a CronJob object
+	if err := json.Unmarshal(data, &cronJob); err != nil {
+		return fmt.Errorf("error unmarshaling cron job: %v", err)
+	}
+	// Try to update the CronJob, if it does not exist, create it
+	_, err := client.Clientset.BatchV1().CronJobs(namespace).Update(context.TODO(), &cronJob, metav1.UpdateOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		_, err = client.Clientset.BatchV1().CronJobs(namespace).Create(context.TODO(), &cronJob, metav1.CreateOptions{})
 	}
 	return err
 }

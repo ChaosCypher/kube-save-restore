@@ -5,6 +5,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -30,4 +31,7 @@ type KubernetesClient interface {
 
 	// ListHorizontalPodAutoscalers returns a list of all horizontal pod autoscalers in the specified namespace.
 	ListHorizontalPodAutoscalers(ctx context.Context, namespace string) (*autoscalingv2.HorizontalPodAutoscalerList, error)
+
+	// ListCronJobs returns a list of all cron jobs in the specified namespace.
+	ListCronJobs(ctx context.Context, namespace string) (*batchv1.CronJobList, error)
 }

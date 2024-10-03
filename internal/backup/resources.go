@@ -22,6 +22,8 @@ func (bm *Manager) backupResource(ctx context.Context, resourceType, namespace s
 		err = bm.backupStatefulSets(ctx, namespace)
 	case "hpas":
 		err = bm.backupHorizontalPodAutoscalers(ctx, namespace)
+	case "cronjobs":
+		err = bm.backupCronJobs(ctx, namespace)
 	default:
 		return fmt.Errorf("unknown resource type: %s", resourceType)
 	}
@@ -147,6 +149,27 @@ func (bm *Manager) backupHorizontalPodAutoscalers(ctx context.Context, namespace
 		} else {
 			if err := bm.saveResource(hpa, "HorizontalPodAutoscaler", filename); err != nil {
 
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// backupCronJobs backs up all cron jobs in a given namespace.
+func (bm *Manager) backupCronJobs(ctx context.Context, namespace string) error {
+	cronJobs, err := bm.client.ListCronJobs(ctx, namespace)
+	if err != nil {
+		return fmt.Errorf("error listing cron jobs in namespace %s: %v", namespace, err)
+	}
+
+	for _, cronJob := range cronJobs.Items {
+		filename := filepath.Join(bm.backupDir, namespace, "cronjobs", cronJob.Name+".json")
+		if bm.dryRun {
+			bm.logger.Infof("Would backup cron job: %s/%s", namespace, cronJob.Name)
+		} else {
+			if err := bm.saveResource(cronJob, "CronJob", filename); err != nil {
 				return err
 			}
 		}

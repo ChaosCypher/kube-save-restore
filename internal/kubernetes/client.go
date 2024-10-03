@@ -17,6 +17,7 @@ type ClientInterface interface {
 	ServiceLister
 	StatefulSetLister
 	HorizontalPodAutoscalerLister
+	CronJobLister
 }
 
 // Client implements the ClientInterface
