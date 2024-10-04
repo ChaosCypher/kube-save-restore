@@ -31,7 +31,7 @@
 
 ## Introduction
 
-Ever wanted to do an old fasioned backup of your Kubernetes clusters resources? Enter kube-save-restore, your cluster's personal bodyguard. It backs up resources faster than you can say "kubectl", whether you're managing a cozy cluster or a Kubernetes behemoth. Think of it as a time machine for your cluster - minus the paradoxes! Let kube-save-restore protect you from data loss and config mishaps.
+Ever wanted to do an old fashioned backup of your Kubernetes clusters resources? Enter kube-save-restore, your cluster's personal bodyguard. It backs up resources faster than you can say "kubectl", whether you're managing a cozy cluster or a Kubernetes behemoth. Think of it as a time machine for your cluster - minus the paradoxes! Let kube-save-restore protect you from data loss and config mishaps.
 
 ## Features
 
