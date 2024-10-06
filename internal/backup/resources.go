@@ -30,8 +30,9 @@ func (bm *Manager) backupResource(ctx context.Context, resourceType, namespace s
 	}
 	if err != nil {
 		bm.logger.Errorf("Failed to backup %s in namespace %s: %v", resourceType, namespace, err)
+		return err
 	}
-	return err
+	return nil
 }
 
 // backupDeployments backs up all deployments in a given namespace.

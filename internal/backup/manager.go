@@ -36,6 +36,7 @@ func (bm *Manager) PerformBackup(ctx context.Context) error {
 	// List all namespaces
 	namespaces, err := bm.client.ListNamespaces(ctx)
 	if err != nil {
+		bm.logger.Errorf("error listing namespaces: %v", err)
 		return fmt.Errorf("error listing namespaces: %v", err)
 	}
 

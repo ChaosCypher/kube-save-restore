@@ -7,9 +7,23 @@ import (
 	"path/filepath"
 )
 
+// ensureDirectoryExists creates the directory structure if it doesn't exist.
+func (bm *Manager) ensureDirectoryExists(path string) error {
+	if err := os.MkdirAll(path, 0755); err != nil {
+		bm.logger.Errorf("Error creating directory: %s: %v", path, err)
+		return fmt.Errorf("error creating directory: %v", err)
+	}
+	return nil
+}
+
 // saveResource saves a Kubernetes resource to a JSON file.
 func (bm *Manager) saveResource(resource interface{}, kind, filename string) error {
 	bm.logger.Debugf("Saving %s resource to %s", kind, filename)
+
+	// Ensure the directory exists
+	if err := bm.ensureDirectoryExists(filepath.Dir(filename)); err != nil {
+		return err
+	}
 
 	// Create a wrapper struct to include the resource kind
 	wrapper := struct {
@@ -25,12 +39,6 @@ func (bm *Manager) saveResource(resource interface{}, kind, filename string) err
 	if err != nil {
 		bm.logger.Errorf("Error marshaling %s resource: %v", kind, err)
 		return fmt.Errorf("error marshaling resource: %v", err)
-	}
-
-	// Create the directory structure if it doesn't exist
-	if err := os.MkdirAll(filepath.Dir(filename), 0755); err != nil {
-		bm.logger.Errorf("Error creating directory for %s: %v", filename, err)
-		return fmt.Errorf("error creating directory: %v", err)
 	}
 
 	// Write the JSON data to the file
