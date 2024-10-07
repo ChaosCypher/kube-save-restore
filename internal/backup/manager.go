@@ -4,9 +4,20 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/chaoscypher/kube-save-restore/internal/logger"
 	"github.com/chaoscypher/kube-save-restore/internal/workerpool"
 )
+
+type Logger interface {
+	Debug(v ...interface{})
+	Info(v ...interface{})
+	Warn(v ...interface{})
+	Error(v ...interface{})
+	Debugf(format string, v ...interface{})
+	Infof(format string, v ...interface{})
+	Warnf(format string, v ...interface{})
+	Errorf(format string, v ...interface{})
+	Close()
+}
 
 // maxConcurrency defines the maximum number of concurrent backup operations.
 const maxConcurrency = 10
@@ -16,11 +27,11 @@ type Manager struct {
 	client    KubernetesClient
 	backupDir string
 	dryRun    bool
-	logger    logger.LoggerInterface
+	logger    Logger
 }
 
 // NewManager creates a new Manager instance.
-func NewManager(client KubernetesClient, backupDir string, dryRun bool, logger logger.LoggerInterface) *Manager {
+func NewManager(client KubernetesClient, backupDir string, dryRun bool, logger Logger) *Manager {
 	return &Manager{
 		client:    client,
 		backupDir: backupDir,
