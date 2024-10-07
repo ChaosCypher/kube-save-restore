@@ -2,17 +2,18 @@ package logger
 
 import (
 	"fmt"
-	"log"
+	"io"
 	"os"
+	"strings"
 
 	"github.com/chaoscypher/kube-save-restore/internal/config"
 )
 
-// SetupLogger initializes the Logger based on the provided configuration.
-// It sets up logging to a file if specified in the config, otherwise defaults to stdout.
+// SetupLogger initializes the Logger based on the provided configuration
 func SetupLogger(cfg *config.Config) LoggerInterface {
-	var logWriter = os.Stdout
+	var logWriter io.Writer = os.Stdout
 	var logFile *os.File
+
 	if cfg.LogFile != "" {
 		file, err := os.OpenFile(cfg.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 		if err != nil {
@@ -22,23 +23,19 @@ func SetupLogger(cfg *config.Config) LoggerInterface {
 		logWriter = file
 		logFile = file
 	}
-	return &Logger{
-		Level:       parseLogLevel(cfg.LogLevel),
-		Output:      logWriter,
-		DebugLogger: log.New(logWriter, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile),
-		InfoLogger:  log.New(logWriter, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile),
-		WarnLogger:  log.New(logWriter, "WARN: ", log.Ldate|log.Ltime|log.Lshortfile),
-		ErrorLogger: log.New(logWriter, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile),
-		LogFile:     logFile,
-	}
+
+	logger := NewLogger(logWriter, parseLogLevel(cfg.LogLevel))
+	logger.LogFile = logFile
+
+	return logger
 }
 
-// parseLogLevel converts a string log level to the corresponding LogLevel type.
+// parseLogLevel converts a string log level to the corresponding LogLevel type
 func parseLogLevel(level string) LogLevel {
-	switch level {
+	switch strings.ToLower(level) {
 	case "debug":
 		return DEBUG
-	case "warn":
+	case "warn", "warning":
 		return WARN
 	case "error":
 		return ERROR
