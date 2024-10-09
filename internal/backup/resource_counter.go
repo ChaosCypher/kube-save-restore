@@ -2,64 +2,140 @@ package backup
 
 import (
 	"context"
+	"sync"
 )
 
-// countResources counts the total number of resources across specified namespaces.
-// It includes deployments, services, configmaps, and secrets.
-func (bm *Manager) countResources(ctx context.Context, namespaces []string) int {
-	total := 0
-	for _, ns := range namespaces {
-		// Count deployments
-		deployments, err := bm.client.ListDeployments(ctx, ns)
-		if err != nil {
-			bm.logger.Errorf("Error listing deployments in namespace %s: %v", ns, err)
-			continue
-		}
-
-		// Count services
-		services, err := bm.client.ListServices(ctx, ns)
-		if err != nil {
-			bm.logger.Errorf("Error listing services in namespace %s: %v", ns, err)
-			continue
-		}
-
-		// Count configmaps
-		configMaps, err := bm.client.ListConfigMaps(ctx, ns)
-		if err != nil {
-			bm.logger.Errorf("Error listing configmaps in namespace %s: %v", ns, err)
-			continue
-		}
-
-		// Count secrets
-		secrets, err := bm.client.ListSecrets(ctx, ns)
-		if err != nil {
-			bm.logger.Errorf("Error listing secrets in namespace %s: %v", ns, err)
-			continue
-		}
-
-		// Count statefulsets
-		statefulSets, err := bm.client.ListStatefulSets(ctx, ns)
-		if err != nil {
-			bm.logger.Errorf("Error listing stateful sets in namespace %s: %v", ns, err)
-			continue
-		}
-
-		// Count HPAs
-		hpas, err := bm.client.ListHorizontalPodAutoscalers(ctx, ns)
-		if err != nil {
-			bm.logger.Errorf("Error listing HPAs in namespace %s: %v", ns, err)
-			continue
-		}
-
-		// Count cron jobs
-		cronJobs, err := bm.client.ListCronJobs(ctx, ns)
-		if err != nil {
-			bm.logger.Errorf("Error listing cron jobs in namespace %s: %v", ns, err)
-			continue
-		}
-
-		// Sum up the total number of resources
-		total += len(deployments.Items) + len(services.Items) + len(configMaps.Items) + len(secrets.Items) + len(hpas.Items) + len(statefulSets.Items) + len(cronJobs.Items)
+// countResources counts the total number of resources across specified namespaces concurrently
+func (bm *Manager) countResources(ctx context.Context) int {
+	namespaces, err := bm.client.ListNamespaces(ctx)
+	if err != nil {
+		bm.logger.Errorf("Error listing namespaces: %v", err)
+		return 0
 	}
+
+	var wg sync.WaitGroup
+	resourceCounts := make(chan int, len(namespaces))
+
+	for _, ns := range namespaces {
+		wg.Add(1)
+		go func(namespace string) {
+			defer wg.Done()
+			count := bm.countResourcesInNamespace(ctx, namespace)
+			resourceCounts <- count
+		}(ns)
+	}
+
+	go func() {
+		wg.Wait()
+		close(resourceCounts)
+	}()
+
+	total := 0
+	for count := range resourceCounts {
+		total += count
+	}
+
 	return total
+}
+
+// countResourcesInNamespace counts the resources in a single namespace
+func (bm *Manager) countResourcesInNamespace(ctx context.Context, namespace string) int {
+	resourceTypes := []struct {
+		name string
+		fn   func(context.Context, string) (int, error)
+	}{
+		{"deployments", bm.countDeployments},
+		{"services", bm.countServices},
+		{"configmaps", bm.countConfigMaps},
+		{"secrets", bm.countSecrets},
+		{"statefulsets", bm.countStatefulSets},
+		{"hpas", bm.countHorizontalPodAutoscalers},
+		{"cronjobs", bm.countCronJobs},
+	}
+
+	var wg sync.WaitGroup
+	counts := make(chan int, len(resourceTypes))
+
+	for _, rt := range resourceTypes {
+		wg.Add(1)
+		go func(name string, countFn func(context.Context, string) (int, error)) {
+			defer wg.Done()
+			count, err := countFn(ctx, namespace)
+			if err != nil {
+				bm.logger.Errorf("Error counting %s in namespace %s: %v", name, namespace, err)
+				counts <- 0
+			} else {
+				counts <- count
+			}
+		}(rt.name, rt.fn)
+	}
+
+	go func() {
+		wg.Wait()
+		close(counts)
+	}()
+
+	total := 0
+	for count := range counts {
+		total += count
+	}
+
+	return total
+}
+
+// Helper functions to count each resource type
+func (bm *Manager) countDeployments(ctx context.Context, namespace string) (int, error) {
+	deployments, err := bm.client.ListDeployments(ctx, namespace)
+	if err != nil {
+		return 0, err
+	}
+	return len(deployments.Items), nil
+}
+
+func (bm *Manager) countServices(ctx context.Context, namespace string) (int, error) {
+	services, err := bm.client.ListServices(ctx, namespace)
+	if err != nil {
+		return 0, err
+	}
+	return len(services.Items), nil
+}
+
+func (bm *Manager) countConfigMaps(ctx context.Context, namespace string) (int, error) {
+	configMaps, err := bm.client.ListConfigMaps(ctx, namespace)
+	if err != nil {
+		return 0, err
+	}
+	return len(configMaps.Items), nil
+}
+
+func (bm *Manager) countSecrets(ctx context.Context, namespace string) (int, error) {
+	secrets, err := bm.client.ListSecrets(ctx, namespace)
+	if err != nil {
+		return 0, err
+	}
+	return len(secrets.Items), nil
+}
+
+func (bm *Manager) countStatefulSets(ctx context.Context, namespace string) (int, error) {
+	statefulSets, err := bm.client.ListStatefulSets(ctx, namespace)
+	if err != nil {
+		return 0, err
+	}
+	return len(statefulSets.Items), nil
+}
+
+func (bm *Manager) countHorizontalPodAutoscalers(ctx context.Context, namespace string) (int, error) {
+	hpas, err := bm.client.ListHorizontalPodAutoscalers(ctx, namespace)
+	if err != nil {
+		return 0, err
+	}
+	return len(hpas.Items), nil
+}
+
+func (bm *Manager) countCronJobs(ctx context.Context, namespace string) (int, error) {
+	cronJobs, err := bm.client.ListCronJobs(ctx, namespace)
+	if err != nil {
+		return 0, err
+	}
+	return len(cronJobs.Items), nil
 }
