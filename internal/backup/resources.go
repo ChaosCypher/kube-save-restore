@@ -24,6 +24,8 @@ func (bm *Manager) backupResource(ctx context.Context, resourceType, namespace s
 		err = bm.backupHorizontalPodAutoscalers(ctx, namespace)
 	case "cronjobs":
 		err = bm.backupCronJobs(ctx, namespace)
+	case "pvcs":
+		err = bm.backupPersistantVolumeClaims(ctx, namespace)
 	default:
 		return fmt.Errorf("unknown resource type: %s", resourceType)
 	}
@@ -175,5 +177,24 @@ func (bm *Manager) backupCronJobs(ctx context.Context, namespace string) error {
 		}
 	}
 
+	return nil
+}
+
+// backupPersistantVolumeClaims backs up all persistent volume claims in a given namespace.
+func (bm *Manager) backupPersistantVolumeClaims(ctx context.Context, namespace string) error {
+	pvcs, err := bm.client.ListPersistantVolumeClaims(ctx, namespace)
+	if err != nil {
+		return fmt.Errorf("error listing persistant volume claims in namespace %s: %v", namespace, err)
+	}
+	for _, pvc := range pvcs.Items {
+		filename := filepath.Join(bm.backupDir, namespace, "pvcs", pvc.Name+".json")
+		if bm.dryRun {
+			bm.logger.Infof("Would backup pvc: %s/%s", namespace, pvc.Name)
+		} else {
+			if err := bm.saveResource(pvc, "PersistentVolumeClaim", filename); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }

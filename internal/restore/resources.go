@@ -39,6 +39,8 @@ func applyResource(client *kubernetes.Client, resource map[string]interface{}, k
 		return applyHorizontalPodAutoscalers(client, adjustedData, namespace)
 	case "CronJob":
 		return applyCronJob(client, adjustedData, namespace)
+	case "PersistentVolumeClaim":
+		return applyPersistentVolumeClaim(client, adjustedData, namespace)
 	default:
 		return fmt.Errorf("unsupported resource kind: %s", kind)
 	}
@@ -146,6 +148,21 @@ func applyCronJob(client *kubernetes.Client, data []byte, namespace string) erro
 	_, err := client.Clientset.BatchV1().CronJobs(namespace).Update(context.TODO(), &cronJob, metav1.UpdateOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		_, err = client.Clientset.BatchV1().CronJobs(namespace).Create(context.TODO(), &cronJob, metav1.CreateOptions{})
+	}
+	return err
+}
+
+// applyPersistentVolumeClaim applies a PersistentVolumeClaim resource to the Kubernetes cluster.
+func applyPersistentVolumeClaim(client *kubernetes.Client, data []byte, namespace string) error {
+	var pvc corev1.PersistentVolumeClaim
+	// Unmarshal the JSON data into a PersistentVolumeClaim object
+	if err := json.Unmarshal(data, &pvc); err != nil {
+		return fmt.Errorf("error unmarshaling pvc: %v", err)
+	}
+	// Try to update the PersistentVolumeClaim, if it does not exist, create it
+	_, err := client.Clientset.CoreV1().PersistentVolumeClaims(namespace).Update(context.TODO(), &pvc, metav1.UpdateOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		_, err = client.Clientset.CoreV1().PersistentVolumeClaims(namespace).Create(context.TODO(), &pvc, metav1.CreateOptions{})
 	}
 	return err
 }
