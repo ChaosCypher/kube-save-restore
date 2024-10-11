@@ -9,29 +9,32 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// KubernetesClient defines the interface for interacting with Kubernetes resources.
+// KubernetesClient defines the interface for interacting with Kubernetes resources
 type KubernetesClient interface {
-	// ListNamespaces returns a list of all namespace names in the cluster.
+	// ListNamespaces returns a list of all namespace names in the cluster
 	ListNamespaces(ctx context.Context) ([]string, error)
 
-	// ListDeployments returns a list of all deployments in the specified namespace.
+	// ListDeployments returns a list of all deployments in the specified namespace
 	ListDeployments(ctx context.Context, namespace string) (*appsv1.DeploymentList, error)
 
-	// ListServices returns a list of all services in the specified namespace.
+	// ListServices returns a list of all services in the specified namespace
 	ListServices(ctx context.Context, namespace string) (*corev1.ServiceList, error)
 
-	// ListConfigMaps returns a list of all config maps in the specified namespace.
+	// ListConfigMaps returns a list of all config maps in the specified namespace
 	ListConfigMaps(ctx context.Context, namespace string) (*corev1.ConfigMapList, error)
 
-	// ListSecrets returns a list of all secrets in the specified namespace.
+	// ListSecrets returns a list of all secrets in the specified namespace
 	ListSecrets(ctx context.Context, namespace string) (*corev1.SecretList, error)
 
-	// ListStatefulSets returns a list of all stateful sets in the specified namespace.
+	// ListStatefulSets returns a list of all stateful sets in the specified namespace
 	ListStatefulSets(ctx context.Context, namespace string) (*appsv1.StatefulSetList, error)
 
-	// ListHorizontalPodAutoscalers returns a list of all horizontal pod autoscalers in the specified namespace.
+	// ListHorizontalPodAutoscalers returns a list of all horizontal pod autoscalers in the specified namespace
 	ListHorizontalPodAutoscalers(ctx context.Context, namespace string) (*autoscalingv2.HorizontalPodAutoscalerList, error)
 
-	// ListCronJobs returns a list of all cron jobs in the specified namespace.
+	// ListCronJobs returns a list of all cron jobs in the specified namespace
 	ListCronJobs(ctx context.Context, namespace string) (*batchv1.CronJobList, error)
+
+	// PersistantVolumeClaims returns a list of all persistant volume claims in the specified namespace
+	ListPersistantVolumeClaims(ctx context.Context, namespace string) (*corev1.PersistentVolumeClaimList, error)
 }

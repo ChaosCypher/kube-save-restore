@@ -337,3 +337,22 @@ func TestListCronJobs(t *testing.T) {
 		t.Fatalf("expected cronjob name to be 'test-cronjob', got %s", cronJobs.Items[0].Name)
 	}
 }
+
+func TestListPersistentVolumeClaims(t *testing.T) {
+	client := &Client{Clientset: fake.NewSimpleClientset(&v1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-pvc", Namespace: "default"},
+	})}
+
+	pvcs, err := client.ListPersistantVolumeClaims(context.Background(), "default")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if len(pvcs.Items) != 1 {
+		t.Fatalf("expected 1 pvc, got %d", len(pvcs.Items))
+	}
+
+	if pvcs.Items[0].Name != "test-pvc" {
+		t.Fatalf("expected pvc name to be 'test-pvc', got %s", pvcs.Items[0].Name)
+	}
+}

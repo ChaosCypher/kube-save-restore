@@ -22,7 +22,7 @@ type Logger interface {
 const maxConcurrency = 10
 
 // resourceTypes defines the Kubernetes resource types to be backed up
-var resourceTypes = []string{"deployments", "services", "configmaps", "secrets", "hpas", "statefulsets", "cronjobs"}
+var resourceTypes = []string{"deployments", "services", "configmaps", "secrets", "hpas", "statefulsets", "cronjobs", "pvcs"}
 
 // Manager handles the backup process for Kubernetes resources
 type Manager struct {
@@ -66,7 +66,7 @@ func (bm *Manager) PerformBackup(ctx context.Context) error {
 
 	// Start worker goroutines
 	for i := 0; i < maxConcurrency; i++ {
-		go bm.worker(ctx)
+		go bm.worker()
 	}
 
 	// Enqueue backup tasks
@@ -88,7 +88,7 @@ func (bm *Manager) PerformBackup(ctx context.Context) error {
 }
 
 // worker processes tasks from the tasks channel
-func (bm *Manager) worker(ctx context.Context) {
+func (bm *Manager) worker() {
 	for task := range bm.tasks {
 		if err := task(); err != nil {
 			bm.errMu.Lock()
