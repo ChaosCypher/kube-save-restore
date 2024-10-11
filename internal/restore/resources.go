@@ -15,7 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// applyResource applies the resource to the Kubernetes cluster based on its kind.
+// applyResource applies the resource to the Kubernetes cluster based on its kind
 func applyResource(client *kubernetes.Client, resource map[string]interface{}, kind, namespace string) error {
 	// Marshal the resource into JSON format
 	adjustedData, err := json.Marshal(resource)
@@ -46,7 +46,7 @@ func applyResource(client *kubernetes.Client, resource map[string]interface{}, k
 	}
 }
 
-// applyDeployment applies a Deployment resource to the Kubernetes cluster.
+// applyDeployment applies a Deployment resource to the Kubernetes cluster
 func applyDeployment(client *kubernetes.Client, data []byte, namespace string) error {
 	var deployment appsv1.Deployment
 	// Unmarshal the JSON data into a Deployment object
@@ -61,7 +61,7 @@ func applyDeployment(client *kubernetes.Client, data []byte, namespace string) e
 	return err
 }
 
-// applyService applies a Service resource to the Kubernetes cluster.
+// applyService applies a Service resource to the Kubernetes cluster
 func applyService(client *kubernetes.Client, data []byte, namespace string) error {
 	var service corev1.Service
 	// Unmarshal the JSON data into a Service object
@@ -76,7 +76,7 @@ func applyService(client *kubernetes.Client, data []byte, namespace string) erro
 	return err
 }
 
-// applyConfigMap applies a ConfigMap resource to the Kubernetes cluster.
+// applyConfigMap applies a ConfigMap resource to the Kubernetes cluster
 func applyConfigMap(client *kubernetes.Client, data []byte, namespace string) error {
 	var configMap corev1.ConfigMap
 	// Unmarshal the JSON data into a ConfigMap object
@@ -91,7 +91,7 @@ func applyConfigMap(client *kubernetes.Client, data []byte, namespace string) er
 	return err
 }
 
-// applySecret applies a Secret resource to the Kubernetes cluster.
+// applySecret applies a Secret resource to the Kubernetes cluster
 func applySecret(client *kubernetes.Client, data []byte, namespace string) error {
 	var secret corev1.Secret
 	// Unmarshal the JSON data into a Secret object
@@ -106,7 +106,7 @@ func applySecret(client *kubernetes.Client, data []byte, namespace string) error
 	return err
 }
 
-// applyStatefulSet applies a StatefulSet resource to the Kubernetes cluster.
+// applyStatefulSet applies a StatefulSet resource to the Kubernetes cluster
 func applyStatefulSet(client *kubernetes.Client, data []byte, namespace string) error {
 	var statefulSet appsv1.StatefulSet
 	// Unmarshal the JSON data into a StatefulSet object
@@ -121,7 +121,7 @@ func applyStatefulSet(client *kubernetes.Client, data []byte, namespace string) 
 	return err
 }
 
-// applyHorizontalPodAutoscalers applies a HorizontalPodAutoscaler resource to the Kubernetes cluster.
+// applyHorizontalPodAutoscalers applies a HorizontalPodAutoscaler resource to the Kubernetes cluster
 func applyHorizontalPodAutoscalers(client *kubernetes.Client, data []byte, namespace string) error {
 	var hpa autoscalingv2.HorizontalPodAutoscaler
 	// Unmarshal the JSON data into a HorizontalPodAutoscaler object
@@ -137,7 +137,7 @@ func applyHorizontalPodAutoscalers(client *kubernetes.Client, data []byte, names
 	return err
 }
 
-// applyCronJob applies a CronJob resource to the Kubernetes cluster.
+// applyCronJob applies a CronJob resource to the Kubernetes cluster
 func applyCronJob(client *kubernetes.Client, data []byte, namespace string) error {
 	var cronJob batchv1.CronJob
 	// Unmarshal the JSON data into a CronJob object
@@ -152,7 +152,7 @@ func applyCronJob(client *kubernetes.Client, data []byte, namespace string) erro
 	return err
 }
 
-// applyPersistentVolumeClaim applies a PersistentVolumeClaim resource to the Kubernetes cluster.
+// applyPersistentVolumeClaim applies a PersistentVolumeClaim resource to the Kubernetes cluster
 func applyPersistentVolumeClaim(client *kubernetes.Client, data []byte, namespace string) error {
 	var pvc corev1.PersistentVolumeClaim
 	// Unmarshal the JSON data into a PersistentVolumeClaim object
