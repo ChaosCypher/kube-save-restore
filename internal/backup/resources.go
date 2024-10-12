@@ -182,7 +182,7 @@ func (bm *Manager) backupCronJobs(ctx context.Context, namespace string) error {
 
 // backupPersistantVolumeClaims backs up all persistent volume claims in a given namespace
 func (bm *Manager) backupPersistantVolumeClaims(ctx context.Context, namespace string) error {
-	pvcs, err := bm.client.ListPersistantVolumeClaims(ctx, namespace)
+	pvcs, err := bm.client.ListPersistentVolumeClaims(ctx, namespace)
 	if err != nil {
 		return fmt.Errorf("error listing persistant volume claims in namespace %s: %v", namespace, err)
 	}
