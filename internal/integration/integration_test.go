@@ -4,6 +4,7 @@ package integration
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -22,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-// TestRunBackup tests the backup functionality of the application.
+// TestRunBackup tests the backup functionality of the application
 func TestRunBackup(t *testing.T) {
 	testCases := []struct {
 		name   string
@@ -103,7 +104,7 @@ func TestRunBackup(t *testing.T) {
 	}
 }
 
-// TestRunRestore tests the restore functionality of the application.
+// TestRunRestore tests the restore functionality of the application
 func TestRunRestore(t *testing.T) {
 	testCases := []struct {
 		name   string
@@ -169,7 +170,7 @@ func TestRunRestore(t *testing.T) {
 	}
 }
 
-// Helper function to get the kubeconfig path for testing.
+// Helper function to get the kubeconfig path for testing
 func getTestKubeconfig(t *testing.T) string {
 	kubeconfig := os.Getenv("TEST_KUBECONFIG")
 	if kubeconfig == "" {
@@ -182,12 +183,8 @@ func getTestKubeconfig(t *testing.T) string {
 	return kubeconfig
 }
 
-func TestBackupAndRestoreDeployment(t *testing.T) {
-	ctx := context.Background()
-	testNamespace := "test-deployment-namespace"
-	deploymentName := "test-deployment"
-
-	// Setup test configuration
+// setupTestEnvironment sets up the test environment
+func setupTestEnvironment(t *testing.T) (*config.Config, logger.LoggerInterface, *kubernetes.Client) {
 	testConfig := &config.Config{
 		Mode:       "backup",
 		BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
@@ -196,22 +193,55 @@ func TestBackupAndRestoreDeployment(t *testing.T) {
 		DryRun:     false,
 	}
 
-	// Setup logger
 	log := logger.SetupLogger(testConfig)
 
-	// Create Kubernetes client
 	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
 	if err != nil {
 		t.Fatalf("Failed to create Kubernetes client: %v", err)
 	}
 
-	// Create the test namespace
+	return testConfig, log, kubeClient
+}
+
+// createTestNamespace creates a test namespace
+func createTestNamespace(ctx context.Context, kubeClient *kubernetes.Client, name string) error {
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: testNamespace,
+			Name: name,
 		},
 	}
-	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	_, err := kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	return err
+}
+
+// performBackupAndRestore performs a backup and restore
+func performBackupAndRestore(testConfig *config.Config, kubeClient *kubernetes.Client, log logger.LoggerInterface) error {
+	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
+	err := backupManager.PerformBackup(context.Background())
+	if err != nil {
+		return fmt.Errorf("Backup failed: %v", err)
+	}
+
+	testConfig.Mode = "restore"
+	testConfig.RestoreDir = testConfig.BackupDir
+	restoreManager := restore.NewManager(kubeClient, log)
+	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
+	if err != nil {
+		return fmt.Errorf("Restore failed: %v", err)
+	}
+
+	return nil
+}
+
+// TestBackupAndRestoreDeployment tests the backup and restore of a deployment
+func TestBackupAndRestoreDeployment(t *testing.T) {
+	ctx := context.Background()
+	testNamespace := "test-deployment-namespace"
+	deploymentName := "test-deployment"
+
+	testConfig, log, kubeClient := setupTestEnvironment(t)
+
+	err := createTestNamespace(ctx, kubeClient, testNamespace)
 	if err != nil {
 		t.Fatalf("Failed to create namespace: %v", err)
 	}
@@ -248,31 +278,9 @@ func TestBackupAndRestoreDeployment(t *testing.T) {
 		t.Fatalf("Failed to create deployment: %v", err)
 	}
 
-	// Perform backup
-	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
-	err = backupManager.PerformBackup(ctx)
+	err = performBackupAndRestore(testConfig, kubeClient, log)
 	if err != nil {
-		t.Fatalf("Backup failed: %v", err)
-	}
-
-	// Edit the deployment
-	deployment, err = kubeClient.Clientset.AppsV1().Deployments(testNamespace).Get(ctx, deploymentName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Failed to get deployment: %v", err)
-	}
-	deployment.Spec.Replicas = int32Ptr(2)
-	_, err = kubeClient.Clientset.AppsV1().Deployments(testNamespace).Update(ctx, deployment, metav1.UpdateOptions{})
-	if err != nil {
-		t.Fatalf("Failed to update deployment: %v", err)
-	}
-
-	// Perform restore
-	testConfig.Mode = "restore"
-	testConfig.RestoreDir = testConfig.BackupDir
-	restoreManager := restore.NewManager(kubeClient, log)
-	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
-	if err != nil {
-		t.Fatalf("Restore failed: %v", err)
+		t.Fatal(err)
 	}
 
 	// Confirm the deployment's settings were restored
@@ -285,37 +293,16 @@ func TestBackupAndRestoreDeployment(t *testing.T) {
 	}
 }
 
+// TestBackupAndRestoreHorizontalPodAutoscaler tests the backup and restore of a HorizontalPodAutoscaler
 func TestBackupAndRestoreHorizontalPodAutoscaler(t *testing.T) {
 	ctx := context.Background()
 	deploymentName := "test-hpa-deployment"
 	testNamespace := "test-hpa-namespace"
 	hpaName := "test-hpa"
 
-	// Setup test configuration
-	testConfig := &config.Config{
-		Mode:       "backup",
-		BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
-		KubeConfig: getTestKubeconfig(t),
-		Context:    "minikube",
-		DryRun:     false,
-	}
+	testConfig, log, kubeClient := setupTestEnvironment(t)
 
-	// Setup logger
-	log := logger.SetupLogger(testConfig)
-
-	// Create Kubernetes client
-	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
-	if err != nil {
-		t.Fatalf("Failed to create Kubernetes client: %v", err)
-	}
-
-	// Create the test namespace
-	namespace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: testNamespace,
-		},
-	}
-	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	err := createTestNamespace(ctx, kubeClient, testNamespace)
 	if err != nil {
 		t.Fatalf("Failed to create namespace: %v", err)
 	}
@@ -372,31 +359,9 @@ func TestBackupAndRestoreHorizontalPodAutoscaler(t *testing.T) {
 		t.Fatalf("Failed to create HorizontalPodAutoscaler: %v", err)
 	}
 
-	// Perform backup
-	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
-	err = backupManager.PerformBackup(ctx)
+	err = performBackupAndRestore(testConfig, kubeClient, log)
 	if err != nil {
-		t.Fatalf("Backup failed: %v", err)
-	}
-
-	// Edit the HPA
-	hpa, err = kubeClient.Clientset.AutoscalingV2().HorizontalPodAutoscalers(testNamespace).Get(ctx, hpaName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Failed to get HorizontalPodAutoscaler: %v", err)
-	}
-	hpa.Spec.MinReplicas = int32Ptr(2)
-	_, err = kubeClient.Clientset.AutoscalingV2().HorizontalPodAutoscalers(testNamespace).Update(ctx, hpa, metav1.UpdateOptions{})
-	if err != nil {
-		t.Fatalf("Failed to update HorizontalPodAutoscaler: %v", err)
-	}
-
-	// Perform restore
-	testConfig.Mode = "restore"
-	testConfig.RestoreDir = testConfig.BackupDir
-	restoreManager := restore.NewManager(kubeClient, log)
-	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
-	if err != nil {
-		t.Fatalf("Restore failed: %v", err)
+		t.Fatal(err)
 	}
 
 	// Confirm the HPA's settings were restored
@@ -409,36 +374,15 @@ func TestBackupAndRestoreHorizontalPodAutoscaler(t *testing.T) {
 	}
 }
 
+// TestBackupAndRestoreSecret tests the backup and restore of a Secret
 func TestBackupAndRestoreSecret(t *testing.T) {
 	ctx := context.Background()
 	testNamespace := "test-secret-namespace"
 	secretName := "test-secret"
 
-	// Setup test configuration
-	testConfig := &config.Config{
-		Mode:       "backup",
-		BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
-		KubeConfig: getTestKubeconfig(t),
-		Context:    "minikube",
-		DryRun:     false,
-	}
+	testConfig, log, kubeClient := setupTestEnvironment(t)
 
-	// Setup logger
-	log := logger.SetupLogger(testConfig)
-
-	// Create Kubernetes client
-	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
-	if err != nil {
-		t.Fatalf("Failed to create Kubernetes client: %v", err)
-	}
-
-	// Create the test namespace
-	namespace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: testNamespace,
-		},
-	}
-	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	err := createTestNamespace(ctx, kubeClient, testNamespace)
 	if err != nil {
 		t.Fatalf("Failed to create namespace: %v", err)
 	}
@@ -459,31 +403,9 @@ func TestBackupAndRestoreSecret(t *testing.T) {
 		t.Fatalf("Failed to create Secret: %v", err)
 	}
 
-	// Perform backup
-	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
-	err = backupManager.PerformBackup(ctx)
+	err = performBackupAndRestore(testConfig, kubeClient, log)
 	if err != nil {
-		t.Fatalf("Backup failed: %v", err)
-	}
-
-	// Edit the Secret
-	secret, err = kubeClient.Clientset.CoreV1().Secrets(testNamespace).Get(ctx, secretName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Failed to get Secret: %v", err)
-	}
-	secret.Data["password"] = []byte("newpassword")
-	_, err = kubeClient.Clientset.CoreV1().Secrets(testNamespace).Update(ctx, secret, metav1.UpdateOptions{})
-	if err != nil {
-		t.Fatalf("Failed to update Secret: %v", err)
-	}
-
-	// Perform restore
-	testConfig.Mode = "restore"
-	testConfig.RestoreDir = testConfig.BackupDir
-	restoreManager := restore.NewManager(kubeClient, log)
-	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
-	if err != nil {
-		t.Fatalf("Restore failed: %v", err)
+		t.Fatal(err)
 	}
 
 	// Confirm the Secret's settings were restored
@@ -496,36 +418,15 @@ func TestBackupAndRestoreSecret(t *testing.T) {
 	}
 }
 
+// TestBackupAndRestoreConfigMap tests the backup and restore of a ConfigMap
 func TestBackupAndRestoreConfigMap(t *testing.T) {
 	ctx := context.Background()
 	testNamespace := "test-configmap-namespace"
 	configMapName := "test-configmap"
 
-	// Setup test configuration
-	testConfig := &config.Config{
-		Mode:       "backup",
-		BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
-		KubeConfig: getTestKubeconfig(t),
-		Context:    "minikube",
-		DryRun:     false,
-	}
+	testConfig, log, kubeClient := setupTestEnvironment(t)
 
-	// Setup logger
-	log := logger.SetupLogger(testConfig)
-
-	// Create Kubernetes client
-	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
-	if err != nil {
-		t.Fatalf("Failed to create Kubernetes client: %v", err)
-	}
-
-	// Create the test namespace
-	namespace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: testNamespace,
-		},
-	}
-	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	err := createTestNamespace(ctx, kubeClient, testNamespace)
 	if err != nil {
 		t.Fatalf("Failed to create namespace: %v", err)
 	}
@@ -545,31 +446,9 @@ func TestBackupAndRestoreConfigMap(t *testing.T) {
 		t.Fatalf("Failed to create ConfigMap: %v", err)
 	}
 
-	// Perform backup
-	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
-	err = backupManager.PerformBackup(ctx)
+	err = performBackupAndRestore(testConfig, kubeClient, log)
 	if err != nil {
-		t.Fatalf("Backup failed: %v", err)
-	}
-
-	// Edit the ConfigMap
-	configMap, err = kubeClient.Clientset.CoreV1().ConfigMaps(testNamespace).Get(ctx, configMapName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Failed to get ConfigMap: %v", err)
-	}
-	configMap.Data["config"] = "newvalue"
-	_, err = kubeClient.Clientset.CoreV1().ConfigMaps(testNamespace).Update(ctx, configMap, metav1.UpdateOptions{})
-	if err != nil {
-		t.Fatalf("Failed to update ConfigMap: %v", err)
-	}
-
-	// Perform restore
-	testConfig.Mode = "restore"
-	testConfig.RestoreDir = testConfig.BackupDir
-	restoreManager := restore.NewManager(kubeClient, log)
-	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
-	if err != nil {
-		t.Fatalf("Restore failed: %v", err)
+		t.Fatal(err)
 	}
 
 	// Confirm the ConfigMap's settings were restored
@@ -582,36 +461,15 @@ func TestBackupAndRestoreConfigMap(t *testing.T) {
 	}
 }
 
+// TestBackupAndRestoreService tests the backup and restore of a Service
 func TestBackupAndRestoreService(t *testing.T) {
 	ctx := context.Background()
 	testNamespace := "test-service-namespace"
 	serviceName := "test-service"
 
-	// Setup test configuration
-	testConfig := &config.Config{
-		Mode:       "backup",
-		BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
-		KubeConfig: getTestKubeconfig(t),
-		Context:    "minikube",
-		DryRun:     false,
-	}
+	testConfig, log, kubeClient := setupTestEnvironment(t)
 
-	// Setup logger
-	log := logger.SetupLogger(testConfig)
-
-	// Create Kubernetes client
-	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
-	if err != nil {
-		t.Fatalf("Failed to create Kubernetes client: %v", err)
-	}
-
-	// Create the test namespace
-	namespace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: testNamespace,
-		},
-	}
-	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	err := createTestNamespace(ctx, kubeClient, testNamespace)
 	if err != nil {
 		t.Fatalf("Failed to create namespace: %v", err)
 	}
@@ -639,31 +497,9 @@ func TestBackupAndRestoreService(t *testing.T) {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
 
-	// Perform backup
-	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
-	err = backupManager.PerformBackup(ctx)
+	err = performBackupAndRestore(testConfig, kubeClient, log)
 	if err != nil {
-		t.Fatalf("Backup failed: %v", err)
-	}
-
-	// Edit the Service
-	service, err = kubeClient.Clientset.CoreV1().Services(testNamespace).Get(ctx, serviceName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Failed to get Service: %v", err)
-	}
-	service.Spec.Type = corev1.ServiceTypeLoadBalancer
-	_, err = kubeClient.Clientset.CoreV1().Services(testNamespace).Update(ctx, service, metav1.UpdateOptions{})
-	if err != nil {
-		t.Fatalf("Failed to update Service: %v", err)
-	}
-
-	// Perform restore
-	testConfig.Mode = "restore"
-	testConfig.RestoreDir = testConfig.BackupDir
-	restoreManager := restore.NewManager(kubeClient, log)
-	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
-	if err != nil {
-		t.Fatalf("Restore failed: %v", err)
+		t.Fatal(err)
 	}
 
 	// Confirm the Service's settings were restored
@@ -676,36 +512,15 @@ func TestBackupAndRestoreService(t *testing.T) {
 	}
 }
 
+// TestBackupAndRestoreStatefulSet tests the backup and restore of a StatefulSet
 func TestBackupAndRestoreStatefulSet(t *testing.T) {
 	ctx := context.Background()
 	testNamespace := "test-statefulset-namespace"
 	statefulsetName := "test-statefulset"
 
-	// Setup test configuration
-	testConfig := &config.Config{
-		Mode:       "backup",
-		BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
-		KubeConfig: getTestKubeconfig(t),
-		Context:    "minikube",
-		DryRun:     false,
-	}
+	testConfig, log, kubeClient := setupTestEnvironment(t)
 
-	// Setup logger
-	log := logger.SetupLogger(testConfig)
-
-	// Create Kubernetes client
-	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
-	if err != nil {
-		t.Fatalf("Failed to create Kubernetes client: %v", err)
-	}
-
-	// Create the test namespace
-	namespace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: testNamespace,
-		},
-	}
-	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	err := createTestNamespace(ctx, kubeClient, testNamespace)
 	if err != nil {
 		t.Fatalf("Failed to create namespace: %v", err)
 	}
@@ -742,31 +557,9 @@ func TestBackupAndRestoreStatefulSet(t *testing.T) {
 		t.Fatalf("Failed to create statefulset: %v", err)
 	}
 
-	// Perform backup
-	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
-	err = backupManager.PerformBackup(ctx)
+	err = performBackupAndRestore(testConfig, kubeClient, log)
 	if err != nil {
-		t.Fatalf("Backup failed: %v", err)
-	}
-
-	// Edit the statefulset
-	statefulset, err = kubeClient.Clientset.AppsV1().StatefulSets(testNamespace).Get(ctx, statefulsetName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Failed to get statefulset: %v", err)
-	}
-	statefulset.Spec.Replicas = int32Ptr(2)
-	_, err = kubeClient.Clientset.AppsV1().StatefulSets(testNamespace).Update(ctx, statefulset, metav1.UpdateOptions{})
-	if err != nil {
-		t.Fatalf("Failed to update statefulset: %v", err)
-	}
-
-	// Perform restore
-	testConfig.Mode = "restore"
-	testConfig.RestoreDir = testConfig.BackupDir
-	restoreManager := restore.NewManager(kubeClient, log)
-	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
-	if err != nil {
-		t.Fatalf("Restore failed: %v", err)
+		t.Fatal(err)
 	}
 
 	// Confirm the statefulset's settings were restored
@@ -779,36 +572,15 @@ func TestBackupAndRestoreStatefulSet(t *testing.T) {
 	}
 }
 
+// TestBackupAndRestoreCronJob tests the backup and restore of a CronJob
 func TestBackupAndRestoreCronJob(t *testing.T) {
 	ctx := context.Background()
 	testNamespace := "test-cronjob-namespace"
 	cronJobName := "test-cronjob"
 
-	// Setup test configuration
-	testConfig := &config.Config{
-		Mode:       "backup",
-		BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
-		KubeConfig: getTestKubeconfig(t),
-		Context:    "minikube",
-		DryRun:     false,
-	}
+	testConfig, log, kubeClient := setupTestEnvironment(t)
 
-	// Setup logger
-	log := logger.SetupLogger(testConfig)
-
-	// Create Kubernetes client
-	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
-	if err != nil {
-		t.Fatalf("Failed to create Kubernetes client: %v", err)
-	}
-
-	// Create the test namespace
-	namespace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: testNamespace,
-		},
-	}
-	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	err := createTestNamespace(ctx, kubeClient, testNamespace)
 	if err != nil {
 		t.Fatalf("Failed to create namespace: %v", err)
 	}
@@ -844,31 +616,9 @@ func TestBackupAndRestoreCronJob(t *testing.T) {
 		t.Fatalf("Failed to create cron job: %v", err)
 	}
 
-	// Perform backup
-	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
-	err = backupManager.PerformBackup(ctx)
+	err = performBackupAndRestore(testConfig, kubeClient, log)
 	if err != nil {
-		t.Fatalf("Backup failed: %v", err)
-	}
-
-	// Edit the CronJob
-	cronJob, err = kubeClient.Clientset.BatchV1().CronJobs(testNamespace).Get(ctx, cronJobName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Failed to get cron job: %v", err)
-	}
-	cronJob.Spec.Schedule = "0 1 * * *"
-	_, err = kubeClient.Clientset.BatchV1().CronJobs(testNamespace).Update(ctx, cronJob, metav1.UpdateOptions{})
-	if err != nil {
-		t.Fatalf("Failed to update cron job: %v", err)
-	}
-
-	// Perform restore
-	testConfig.Mode = "restore"
-	testConfig.RestoreDir = testConfig.BackupDir
-	restoreManager := restore.NewManager(kubeClient, log)
-	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
-	if err != nil {
-		t.Fatalf("Restore failed: %v", err)
+		t.Fatal(err)
 	}
 
 	// Confirm the CronJob's settings were restored
@@ -881,36 +631,15 @@ func TestBackupAndRestoreCronJob(t *testing.T) {
 	}
 }
 
+// TestBackupAndRestorePersistentVolumeClaim tests the backup and restore of a PersistentVolumeClaim
 func TestBackupAndRestorePersistentVolumeClaim(t *testing.T) {
 	ctx := context.Background()
 	testNamespace := "test-pvc-namespace"
 	pvcName := "test-pvc"
 
-	// Setup test configuration
-	testConfig := &config.Config{
-		Mode:       "backup",
-		BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
-		KubeConfig: getTestKubeconfig(t),
-		Context:    "minikube",
-		DryRun:     false,
-	}
+	testConfig, log, kubeClient := setupTestEnvironment(t)
 
-	// Setup logger
-	log := logger.SetupLogger(testConfig)
-
-	// Create Kubernetes client
-	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
-	if err != nil {
-		t.Fatalf("Failed to create Kubernetes client: %v", err)
-	}
-
-	// Create the test namespace
-	namespace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: testNamespace,
-		},
-	}
-	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	err := createTestNamespace(ctx, kubeClient, testNamespace)
 	if err != nil {
 		t.Fatalf("Failed to create namespace: %v", err)
 	}
@@ -935,34 +664,9 @@ func TestBackupAndRestorePersistentVolumeClaim(t *testing.T) {
 		t.Fatalf("Failed to create persistent volume claim: %v", err)
 	}
 
-	// Perform backup
-	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
-	err = backupManager.PerformBackup(ctx)
+	err = performBackupAndRestore(testConfig, kubeClient, log)
 	if err != nil {
-		t.Fatalf("Backup failed: %v", err)
-	}
-
-	// Edit the PersistentVolumeClaim
-	pvc, err = kubeClient.Clientset.CoreV1().PersistentVolumeClaims(testNamespace).Get(ctx, pvcName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Failed to get persistent volume claim: %v", err)
-	}
-	if pvc.Labels == nil {
-		pvc.Labels = make(map[string]string)
-	}
-	pvc.Labels["test-label"] = "updated"
-	_, err = kubeClient.Clientset.CoreV1().PersistentVolumeClaims(testNamespace).Update(ctx, pvc, metav1.UpdateOptions{})
-	if err != nil {
-		t.Fatalf("Failed to update persistent volume claim: %v", err)
-	}
-
-	// Perform restore
-	testConfig.Mode = "restore"
-	testConfig.RestoreDir = testConfig.BackupDir
-	restoreManager := restore.NewManager(kubeClient, log)
-	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
-	if err != nil {
-		t.Fatalf("Restore failed: %v", err)
+		t.Fatal(err)
 	}
 
 	// Confirm the PersistentVolumeClaim's settings were restored to original
@@ -975,4 +679,5 @@ func TestBackupAndRestorePersistentVolumeClaim(t *testing.T) {
 	}
 }
 
+// int32Ptr returns a pointer to an int32
 func int32Ptr(i int32) *int32 { return &i }
