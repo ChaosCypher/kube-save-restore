@@ -6,20 +6,36 @@ import (
 
 // TestCountResources tests the countResources method of the Manager struct.
 func TestCountResources(t *testing.T) {
-	// Create a new Manager instance
+	tests := []struct {
+		name          string
+		files         []string
+		expectedCount int
+	}{
+		{
+			name:          "Empty file list",
+			files:         []string{},
+			expectedCount: 0,
+		},
+		{
+			name:          "Single file",
+			files:         []string{"file1.json"},
+			expectedCount: 1,
+		},
+		{
+			name:          "Multiple files",
+			files:         []string{"file1.json", "file2.json", "file3.json"},
+			expectedCount: 3,
+		},
+	}
+
 	rm := &Manager{}
 
-	// Define a slice of file names
-	files := []string{"file1.txt", "file2.txt", "file3.txt"}
-
-	// Define the expected result
-	expected := 3
-
-	// Call the countResources method and store the result
-	result := rm.countResources(files)
-
-	// Check if the result matches the expected value
-	if result != expected {
-		t.Errorf("countResources() = %d; want %d", result, expected)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			count := rm.countResources(tt.files)
+			if count != tt.expectedCount {
+				t.Errorf("countResources() = %d; want %d", count, tt.expectedCount)
+			}
+		})
 	}
 }

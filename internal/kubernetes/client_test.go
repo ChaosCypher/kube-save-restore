@@ -343,7 +343,7 @@ func TestListPersistentVolumeClaims(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "test-pvc", Namespace: "default"},
 	})}
 
-	pvcs, err := client.ListPersistantVolumeClaims(context.Background(), "default")
+	pvcs, err := client.ListPersistentVolumeClaims(context.Background(), "default")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

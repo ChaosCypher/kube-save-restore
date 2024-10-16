@@ -40,24 +40,21 @@ func (bm *Manager) countResources(ctx context.Context) int {
 
 // countResourcesInNamespace counts the resources in a single namespace
 func (bm *Manager) countResourcesInNamespace(ctx context.Context, namespace string) int {
-	resourceTypes := []struct {
-		name string
-		fn   func(context.Context, string) (int, error)
-	}{
-		{"deployments", bm.countDeployments},
-		{"services", bm.countServices},
-		{"configmaps", bm.countConfigMaps},
-		{"secrets", bm.countSecrets},
-		{"statefulsets", bm.countStatefulSets},
-		{"hpas", bm.countHorizontalPodAutoscalers},
-		{"cronjobs", bm.countCronJobs},
-		{"pvcs", bm.countPersistantVolumeClaims},
+	resourceTypes := map[string]func(context.Context, string) (int, error){
+		"deployments":  bm.countDeployments,
+		"services":     bm.countServices,
+		"configmaps":   bm.countConfigMaps,
+		"secrets":      bm.countSecrets,
+		"statefulsets": bm.countStatefulSets,
+		"hpas":         bm.countHorizontalPodAutoscalers,
+		"cronjobs":     bm.countCronJobs,
+		"pvcs":         bm.countPersistentVolumeClaims,
 	}
 
 	var wg sync.WaitGroup
 	counts := make(chan int, len(resourceTypes))
 
-	for _, rt := range resourceTypes {
+	for name, countFn := range resourceTypes {
 		wg.Add(1)
 		go func(name string, countFn func(context.Context, string) (int, error)) {
 			defer wg.Done()
@@ -68,7 +65,7 @@ func (bm *Manager) countResourcesInNamespace(ctx context.Context, namespace stri
 			} else {
 				counts <- count
 			}
-		}(rt.name, rt.fn)
+		}(name, countFn)
 	}
 
 	go func() {
@@ -141,8 +138,8 @@ func (bm *Manager) countCronJobs(ctx context.Context, namespace string) (int, er
 	return len(cronJobs.Items), nil
 }
 
-func (bm *Manager) countPersistantVolumeClaims(ctx context.Context, namespace string) (int, error) {
-	pvcs, err := bm.client.ListPersistantVolumeClaims(ctx, namespace)
+func (bm *Manager) countPersistentVolumeClaims(ctx context.Context, namespace string) (int, error) {
+	pvcs, err := bm.client.ListPersistentVolumeClaims(ctx, namespace)
 	if err != nil {
 		return 0, err
 	}
