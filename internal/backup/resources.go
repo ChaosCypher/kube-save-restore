@@ -4,12 +4,17 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // backupResource handles the backup of a specific resource type in a namespace
 func (bm *Manager) backupResource(ctx context.Context, resourceType, namespace string) error {
 	var err error
 	switch resourceType {
+	case "namespaces":
+		err = bm.backupNamespaces(ctx)
 	case "deployments":
 		err = bm.backupDeployments(ctx, namespace)
 	case "services":
@@ -197,4 +202,54 @@ func (bm *Manager) backupPersistantVolumeClaims(ctx context.Context, namespace s
 		}
 	}
 	return nil
+}
+
+// backupNamespaces backs up all namespaces in the cluster
+func (bm *Manager) backupNamespaces(ctx context.Context) error {
+	namespaces, err := bm.client.ListNamespaces(ctx)
+	if err != nil {
+		return fmt.Errorf("error listing namespaces: %v", err)
+	}
+
+	for _, nsName := range namespaces {
+		namespace, err := bm.client.GetNamespace(ctx, nsName)
+		if err != nil {
+			return fmt.Errorf("error getting namespace %s: %v", nsName, err)
+		}
+
+		// Skip backing up the namespace object for kube- prefixed namespaces
+		if !isKubeNamespace(namespace.Name) {
+			filename := filepath.Join(bm.backupDir, "namespaces", namespace.Name+".json")
+			if bm.dryRun {
+				bm.logger.Infof("Would backup namespace: %s", namespace.Name)
+			} else {
+				// Clean the namespace object before saving
+				cleanNamespaceForBackup(namespace)
+				if err := bm.saveResource(namespace, "Namespace", filename); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// isKubeNamespace returns true if the namespace is a Kubernetes system namespace
+func isKubeNamespace(name string) bool {
+	return len(name) >= 4 && name[:4] == "kube-"
+}
+
+// cleanNamespaceForBackup removes server-specific fields from the namespace
+func cleanNamespaceForBackup(namespace *corev1.Namespace) {
+	// Remove status and other server-specific fields
+	namespace.Status = corev1.NamespaceStatus{}
+	namespace.ObjectMeta.ResourceVersion = ""
+	namespace.ObjectMeta.UID = ""
+	namespace.ObjectMeta.SelfLink = ""
+	namespace.ObjectMeta.CreationTimestamp = metav1.Time{}
+	namespace.ObjectMeta.DeletionTimestamp = nil
+	namespace.ObjectMeta.DeletionGracePeriodSeconds = nil
+	namespace.ObjectMeta.Generation = 0
+	namespace.ObjectMeta.ManagedFields = nil
 }
