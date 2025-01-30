@@ -15,6 +15,7 @@ import (
 type Manager struct {
 	k8sClient *kubernetes.Client
 	logger    logger.LoggerInterface
+	backupDir string
 }
 
 // NewManager creates a new instance of Manager
@@ -26,16 +27,15 @@ func NewManager(k8sClient *kubernetes.Client, logger logger.LoggerInterface) *Ma
 }
 
 // PerformCompare executes the comparison of resources between source and target
-func (m *Manager) PerformCompare(source, target, compareType string, dryRun bool) error {
+func (m *Manager) PerformCompare(source, target, compareType string, backupDir string, dryRun bool) error {
 	m.logger.Infof("Comparing %s resources from %s to %s", compareType, source, target)
 
-	// Fetch resources from source and target
-	sourceResources, err := m.getResources(source, compareType)
+	sourceResources, err := m.getResources(source, compareType, backupDir)
 	if err != nil {
 		return fmt.Errorf("error getting source resources: %w", err)
 	}
 
-	targetResources, err := m.getResources(target, compareType)
+	targetResources, err := m.getResources(target, compareType, backupDir)
 	if err != nil {
 		return fmt.Errorf("error getting target resources: %w", err)
 	}
@@ -56,9 +56,9 @@ func (m *Manager) PerformCompare(source, target, compareType string, dryRun bool
 }
 
 // getResources retrieves resources either from a backup file or a cluster
-func (m *Manager) getResources(location, resourceType string) ([]runtime.Object, error) {
+func (m *Manager) getResources(location, resourceType, backupDir string) ([]runtime.Object, error) {
 	if filepath.IsAbs(location) {
-		return m.getResourcesFromBackup(location, resourceType)
+		return getResourcesFromBackup(location, resourceType)
 	}
 	return m.getResourcesFromCluster(location, resourceType)
 }
@@ -165,16 +165,16 @@ func (m *Manager) compareResources(source, target []runtime.Object) []Difference
 
 // getObjectKey generates a unique key for a Kubernetes object
 func getObjectKey(obj runtime.Object) string {
-    accessor, ok := obj.(metav1.Object)
-    if !ok {
-        // Handle objects that do not implement metav1.Object
-        return ""
-    }
-    return fmt.Sprintf("%s/%s/%s",
-        obj.GetObjectKind().GroupVersionKind().Kind,
-        accessor.GetNamespace(),
-        accessor.GetName(),
-    )
+	accessor, ok := obj.(metav1.Object)
+	if !ok {
+		// Handle objects that do not implement metav1.Object
+		return ""
+	}
+	return fmt.Sprintf("%s/%s/%s",
+		obj.GetObjectKind().GroupVersionKind().Kind,
+		accessor.GetNamespace(),
+		accessor.GetName(),
+	)
 }
 
 // compareObjects compares two Kubernetes objects and returns a string representation of their differences

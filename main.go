@@ -9,11 +9,11 @@ import (
 	"context"
 
 	"github.com/chaoscypher/kube-save-restore/internal/backup"
+	"github.com/chaoscypher/kube-save-restore/internal/compare"
 	"github.com/chaoscypher/kube-save-restore/internal/config"
 	"github.com/chaoscypher/kube-save-restore/internal/kubernetes"
 	"github.com/chaoscypher/kube-save-restore/internal/logger"
 	"github.com/chaoscypher/kube-save-restore/internal/restore"
-	"github.com/chaoscypher/kube-save-restore/internal/compare"
 )
 
 // main is the entry point of the application.
@@ -86,5 +86,5 @@ func handleCompare(config *config.Config, k8sClient *kubernetes.Client, logger l
 		return fmt.Errorf("both --compare-source and --compare-target flags are required for compare mode")
 	}
 	compareManager := compare.NewManager(k8sClient, logger)
-	return compareManager.PerformCompare(config.CompareSource, config.CompareTarget, config.CompareType, config.DryRun)
+	return compareManager.PerformCompare(config.CompareSource, config.CompareTarget, config.CompareType, config.BackupDir, config.DryRun)
 }

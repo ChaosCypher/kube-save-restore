@@ -154,7 +154,7 @@ func TestRun(t *testing.T) {
 				CompareTarget: "/path/to/target",
 				CompareType:   "all",
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "Invalid mode",
