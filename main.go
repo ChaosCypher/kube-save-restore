@@ -13,6 +13,7 @@ import (
 	"github.com/chaoscypher/kube-save-restore/internal/kubernetes"
 	"github.com/chaoscypher/kube-save-restore/internal/logger"
 	"github.com/chaoscypher/kube-save-restore/internal/restore"
+	"github.com/chaoscypher/kube-save-restore/internal/compare"
 )
 
 // main is the entry point of the application.
@@ -40,8 +41,10 @@ func run(config *config.Config, logger logger.LoggerInterface) error {
 		return handleBackup(config, k8sClient, logger)
 	case "restore":
 		return handleRestore(config, k8sClient, logger)
+	case "compare":
+		return handleCompare(config, k8sClient, logger)
 	default:
-		return fmt.Errorf("invalid mode: %s. Use 'backup' or 'restore'", config.Mode)
+		return fmt.Errorf("invalid mode: %s. Use 'backup', 'restore' or 'compare'", config.Mode)
 	}
 }
 
@@ -75,4 +78,13 @@ func handleRestore(config *config.Config, k8sClient *kubernetes.Client, logger l
 	}
 	restoreManager := restore.NewManager(k8sClient, logger)
 	return restoreManager.PerformRestore(config.RestoreDir, config.DryRun)
+}
+
+// handleCompare performs the compare operation using the provided configuration and Kubernetes client.
+func handleCompare(config *config.Config, k8sClient *kubernetes.Client, logger logger.LoggerInterface) error {
+	if config.CompareSource == "" || config.CompareTarget == "" {
+		return fmt.Errorf("both --compare-source and --compare-target flags are required for compare mode")
+	}
+	compareManager := compare.NewManager(k8sClient, logger)
+	return compareManager.PerformCompare(config.CompareSource, config.CompareTarget, config.CompareType, config.DryRun)
 }

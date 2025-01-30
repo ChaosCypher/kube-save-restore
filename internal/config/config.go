@@ -17,6 +17,9 @@ type Config struct {
 	DryRun     bool
 	LogLevel   string
 	LogFile    string
+	CompareSource string
+	CompareTarget string
+	CompareType string
 }
 
 // ParseFlags parses command-line flags and environment variables into a Config struct.
@@ -26,10 +29,13 @@ func ParseFlags() *Config {
 	flag.StringVar(&config.Context, "context", getEnv("KUBE_CONTEXT", ""), "Kubernetes context to use")
 	flag.StringVar(&config.BackupDir, "backup-dir", getEnv("BACKUP_DIR", ""), "Directory to store backups")
 	flag.StringVar(&config.RestoreDir, "restore-dir", getEnv("RESTORE_DIR", ""), "Directory to restore from")
-	flag.StringVar(&config.Mode, "mode", getEnv("MODE", "backup"), "Mode: 'backup' or 'restore'")
+	flag.StringVar(&config.Mode, "mode", getEnv("MODE", "backup"), "Mode: 'backup', 'restore' or 'compare'")
 	flag.BoolVar(&config.DryRun, "dry-run", getEnvAsBool("DRY_RUN", false), "Perform a dry run without making any changes")
 	flag.StringVar(&config.LogLevel, "log-level", getEnv("LOG_LEVEL", "info"), "Log level: debug, info, warn, error")
 	flag.StringVar(&config.LogFile, "log-file", getEnv("LOG_FILE", ""), "Path to log file (if not set, logs to stdout)")
+	flag.StringVar(&config.CompareSource, "compare-source", "", "Source cluster or backup for comparison")
+	flag.StringVar(&config.CompareTarget, "compare-target", "", "Target cluster or backup for comparison")
+	flag.StringVar(&config.CompareType, "compare-type", "all", "Type of resources to compare: all, deployments, services, etc.")
 	flag.Parse()
 	if err := validateConfig(config); err != nil {
 		fmt.Println(err)
