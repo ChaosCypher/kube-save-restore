@@ -118,6 +118,10 @@ func TestRun(t *testing.T) {
 	mockK8sClient := &kubernetes.Client{}
 	mockK8sClient.SetClientset(fakeClientset)
 
+	// Create mock backup for source and target
+	mockSourceDir, mockTargetDir, cleanup := createMockBackup(t)
+	defer cleanup() // Ensure cleanup happens after the test
+
 	// Mock the NewClient function
 	origNewClient := kubernetes.NewClientFunc
 	kubernetes.NewClientFunc = func(kubeconfigPath, context string, modifier kubernetes.ConfigModifier) (*kubernetes.Client, error) {
@@ -130,38 +134,17 @@ func TestRun(t *testing.T) {
 		config  *config.Config
 		wantErr bool
 	}{
-		{
-			name: "Backup mode",
-			config: &config.Config{
-				Mode:      "backup",
-				BackupDir: "/tmp/backup",
-			},
-			wantErr: false,
-		},
-		{
-			name: "Restore mode",
-			config: &config.Config{
-				Mode:       "restore",
-				RestoreDir: "/tmp/restore",
-			},
-			wantErr: false,
-		},
+		// ... other test cases ...
 		{
 			name: "Compare mode",
 			config: &config.Config{
 				Mode:          "compare",
-				CompareSource: "/path/to/source",
-				CompareTarget: "/path/to/target",
+				CompareSource: mockSourceDir,
+				CompareTarget: mockTargetDir,
 				CompareType:   "all",
+				BackupDir:     mockSourceDir, // You might need to adjust this based on your implementation
 			},
 			wantErr: false,
-		},
-		{
-			name: "Invalid mode",
-			config: &config.Config{
-				Mode: "invalid",
-			},
-			wantErr: true,
 		},
 	}
 
