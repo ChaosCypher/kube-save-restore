@@ -3,10 +3,10 @@
 package compare
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/chaoscypher/kube-save-restore/internal/kubernetes"
-	"github.com/chaoscypher/kube-save-restore/internal/logger"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
@@ -33,11 +33,15 @@ type MockLogger struct {
 	ErrorMessages []string
 }
 
-func (m *MockLogger) Info(args ...interface{})  { m.InfoMessages = append(m.InfoMessages, fmt.Sprint(args...)) }
+func (m *MockLogger) Info(args ...interface{}) {
+	m.InfoMessages = append(m.InfoMessages, fmt.Sprint(args...))
+}
 func (m *MockLogger) Infof(format string, args ...interface{}) {
 	m.InfoMessages = append(m.InfoMessages, fmt.Sprintf(format, args...))
 }
-func (m *MockLogger) Error(args ...interface{}) { m.ErrorMessages = append(m.ErrorMessages, fmt.Sprint(args...)) }
+func (m *MockLogger) Error(args ...interface{}) {
+	m.ErrorMessages = append(m.ErrorMessages, fmt.Sprint(args...))
+}
 func (m *MockLogger) Errorf(format string, args ...interface{}) {
 	m.ErrorMessages = append(m.ErrorMessages, fmt.Sprintf(format, args...))
 }
