@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -23,4 +24,9 @@ func (c *Client) ListNamespaces(ctx context.Context) ([]string, error) {
 		namespaceList = append(namespaceList, ns.Name)
 	}
 	return namespaceList, nil
+}
+
+// GetNamespace gets a namespace by name
+func (c *Client) GetNamespace(ctx context.Context, namespace string) (*corev1.Namespace, error) {
+	return c.Clientset.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
 }

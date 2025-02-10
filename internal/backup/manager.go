@@ -20,7 +20,17 @@ type Logger interface {
 }
 
 // resourceTypes defines the Kubernetes resource types to be backed up
-var resourceTypes = []string{"deployments", "services", "configmaps", "secrets", "hpas", "statefulsets", "cronjobs", "pvcs"}
+var resourceTypes = []string{
+	"namespaces",
+	"deployments",
+	"services",
+	"configmaps",
+	"secrets",
+	"hpas",
+	"statefulsets",
+	"cronjobs",
+	"pvcs",
+}
 
 // Manager handles the backup process for Kubernetes resources
 type Manager struct {

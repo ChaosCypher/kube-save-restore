@@ -2,6 +2,7 @@ package backup
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // MockKubernetesClient is a mock implementation of the KubernetesClient interface
@@ -74,10 +76,21 @@ func (m *MockKubernetesClient) ListPersistentVolumeClaims(ctx context.Context, n
 	return args.Get(0).(*corev1.PersistentVolumeClaimList), args.Error(1)
 }
 
+// GetNamespace mocks the GetNamespace method of the KubernetesClient interface
+func (m *MockKubernetesClient) GetNamespace(ctx context.Context, name string) (*corev1.Namespace, error) {
+	args := m.Called(ctx, name)
+	if ns, ok := args.Get(0).(*corev1.Namespace); ok {
+		return ns, args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
 // setupMockClient creates and configures a MockKubernetesClient with default expectations
 func setupMockClient() *MockKubernetesClient {
 	mockClient := new(MockKubernetesClient)
 	mockClient.On("ListNamespaces", mock.Anything).Return([]string{"default", "kube-system"}, nil)
+	mockClient.On("GetNamespace", mock.Anything, "default").Return(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}, nil)
+	mockClient.On("GetNamespace", mock.Anything, "kube-system").Return(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "kube-system"}}, nil)
 
 	// Set up expectations for the default namespace
 	mockClient.On("ListDeployments", mock.Anything, "default").Return(&appsv1.DeploymentList{Items: make([]appsv1.Deployment, 1)}, nil)
@@ -166,6 +179,72 @@ func TestCountResources(t *testing.T) {
 	// kube-system namespace: 20 (2+3+4+5+1+2+1+2)
 	expectedCount := 28
 	assert.Equal(t, expectedCount, count)
+
+	mockClient.AssertExpectations(t)
+}
+
+// TestBackupNamespaces tests the backupNamespaces method of the Manager
+func TestBackupNamespaces(t *testing.T) {
+	backupDir, err := os.MkdirTemp("", "k8s-backup-test")
+	if err != nil {
+		t.Fatalf("Failed to create temporary backup directory: %v", err)
+	}
+	defer os.RemoveAll(backupDir)
+
+	mockClient := &MockKubernetesClient{}
+
+	// Setup test data
+	namespaces := []string{"default", "test-ns", "kube-system"}
+	mockClient.On("ListNamespaces", mock.Anything).Return(namespaces, nil)
+
+	// Setup mock responses for GetNamespace
+	mockClient.On("GetNamespace", mock.Anything, "default").Return(
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "default",
+				Labels: map[string]string{"env": "prod"},
+			},
+		}, nil)
+
+	mockClient.On("GetNamespace", mock.Anything, "test-ns").Return(
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "test-ns",
+				Labels: map[string]string{"env": "test"},
+			},
+		}, nil)
+
+	mockClient.On("GetNamespace", mock.Anything, "kube-system").Return(
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "kube-system",
+			},
+		}, nil)
+
+	manager := setupManager(mockClient, backupDir, false)
+
+	// Test backup namespaces
+	err = manager.backupNamespaces(context.Background())
+	assert.NoError(t, err)
+
+	// Verify backup files were created (except for kube-system)
+	nsDir := filepath.Join(backupDir, "namespaces")
+	files, err := os.ReadDir(nsDir)
+	assert.NoError(t, err)
+
+	// Should have 2 namespace files (default and test-ns, but not kube-system)
+	assert.Equal(t, 2, len(files))
+
+	// Verify file contents for a namespace
+	defaultNsPath := filepath.Join(nsDir, "default.json")
+	content, err := os.ReadFile(defaultNsPath)
+	assert.NoError(t, err)
+
+	var ns corev1.Namespace
+	err = json.Unmarshal(content, &ns)
+	assert.NoError(t, err)
+	assert.Equal(t, "default", ns.Name)
+	assert.Equal(t, "prod", ns.Labels["env"])
 
 	mockClient.AssertExpectations(t)
 }
