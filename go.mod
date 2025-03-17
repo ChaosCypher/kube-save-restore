@@ -1,12 +1,13 @@
 module github.com/chaoscypher/kube-save-restore
 
 go 1.23.1
+toolchain go1.24.1
 
 require (
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/sync v0.10.0
 	k8s.io/api v0.31.3
-	k8s.io/apimachinery v0.32.1
+	k8s.io/apimachinery v0.32.3
 	k8s.io/client-go v0.31.3
 )
 
