@@ -14,6 +14,9 @@ type KubernetesClient interface {
 	// ListNamespaces returns a list of all namespace names in the cluster
 	ListNamespaces(ctx context.Context) ([]string, error)
 
+	// GetNamespace returns a specific namespace
+	GetNamespace(ctx context.Context, name string) (*corev1.Namespace, error)
+
 	// ListDeployments returns a list of all deployments in the specified namespace
 	ListDeployments(ctx context.Context, namespace string) (*appsv1.DeploymentList, error)
 
