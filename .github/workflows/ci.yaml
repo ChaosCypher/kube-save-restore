@@ -217,7 +217,7 @@ jobs:
         uses: azure/setup-kubectl@v4
 
       - name: Start Minikube
-        uses: medyagh/setup-minikube@v0.0.19
+        uses: medyagh/setup-minikube@v0.0.20
 
       - name: Run Integration Tests
         shell: bash
