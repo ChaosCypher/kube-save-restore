@@ -15,7 +15,7 @@ type NamespaceLister interface {
 
 // ListNamespaces lists all namespaces in the cluster
 func (c *Client) ListNamespaces(ctx context.Context) ([]string, error) {
-	namespaces, err := c.Clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	namespaces, err := c.GetNamespaces(ctx)
 	if err != nil {
 		return nil, err
 	}
