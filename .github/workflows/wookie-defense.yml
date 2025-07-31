@@ -1,0 +1,25 @@
+name: Wookiee Base Defense
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  defend-kashyyyk:
+    runs-on: kashyyyk-runner
+    steps:
+      - name: Activate Bowcaster Turrets
+        run: |
+          echo "Powering up bowcasters..."
+          
+      
+      - name: Deploy Wroshyr Vine Traps
+        run: |
+          echo "Setting vine traps..."
+          
+      
+      - name: Sound Wookiee Battle Cry
+        run: |
+          echo "RRRAARRWHHGWWR!"
+          
