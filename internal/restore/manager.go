@@ -49,12 +49,20 @@ func (m *Manager) PerformRestore(restoreDir string, dryRun bool) error {
 		m.logger.Info("Dry run mode: No resources will be created or modified")
 	}
 
-	// First, restore namespaces sequentially to ensure they exist before other resources
-	m.logger.Info("Restoring namespaces first...")
-	for _, nsFile := range namespaceFiles {
-		if err := m.RestoreResource(nsFile, dryRun); err != nil {
-			m.logger.Errorf("Error restoring namespace from %s: %v", nsFile, err)
+	// First, restore namespaces to ensure they exist before other resources
+	if len(namespaceFiles) > 0 {
+		m.logger.Info("Restoring namespaces first...")
+		nsWp := workerpool.NewWorkerPool(maxConcurrency, len(namespaceFiles))
+		m.enqueueTasks(namespaceFiles, nsWp, dryRun)
+
+		// Run the namespace worker pool and collect any errors
+		nsErrors := nsWp.Run(context.Background())
+		if len(nsErrors) > 0 {
+			for _, err := range nsErrors {
+				m.logger.Errorf("Error restoring namespace: %v", err)
+			}
 		}
+		m.logger.Info("Namespace restoration completed")
 	}
 
 	// Then restore other resources using the worker pool
