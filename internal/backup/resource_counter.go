@@ -48,6 +48,7 @@ func (bm *Manager) countResourcesInNamespace(ctx context.Context, namespace stri
 		"statefulsets": bm.countStatefulSets,
 		"hpas":         bm.countHorizontalPodAutoscalers,
 		"cronjobs":     bm.countCronJobs,
+		"jobs":         bm.countJobs,
 		"pvcs":         bm.countPersistentVolumeClaims,
 	}
 
@@ -144,4 +145,12 @@ func (bm *Manager) countPersistentVolumeClaims(ctx context.Context, namespace st
 		return 0, err
 	}
 	return len(pvcs.Items), nil
+}
+
+func (bm *Manager) countJobs(ctx context.Context, namespace string) (int, error) {
+	jobs, err := bm.client.ListJobs(ctx, namespace)
+	if err != nil {
+		return 0, err
+	}
+	return len(jobs.Items), nil
 }
