@@ -35,6 +35,9 @@ type KubernetesClient interface {
 	// ListCronJobs returns a list of all cron jobs in the specified namespace
 	ListCronJobs(ctx context.Context, namespace string) (*batchv1.CronJobList, error)
 
+	// ListJobs returns a list of all jobs in the specified namespace
+	ListJobs(ctx context.Context, namespace string) (*batchv1.JobList, error)
+
 	// ListPersistentVolumeClaims returns a list of all persistent volume claims in the specified namespace
 	ListPersistentVolumeClaims(ctx context.Context, namespace string) (*corev1.PersistentVolumeClaimList, error)
 }
