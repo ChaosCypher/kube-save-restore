@@ -881,6 +881,107 @@ func TestBackupAndRestoreCronJob(t *testing.T) {
 	}
 }
 
+func TestBackupAndRestoreJob(t *testing.T) {
+	ctx := context.Background()
+	testNamespace := "test-job-namespace"
+	jobName := "test-job"
+
+	// Setup test configuration
+	testConfig := &config.Config{
+		Mode:       "backup",
+		BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
+		KubeConfig: getTestKubeconfig(t),
+		Context:    "minikube",
+		DryRun:     false,
+	}
+
+	// Setup logger
+	log := logger.SetupLogger(testConfig)
+
+	// Create Kubernetes client
+	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
+	if err != nil {
+		t.Fatalf("Failed to create Kubernetes client: %v", err)
+	}
+
+	// Create the test namespace
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNamespace,
+		},
+	}
+	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create namespace: %v", err)
+	}
+
+	// Create a Job
+	job := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      jobName,
+			Namespace: testNamespace,
+		},
+		Spec: batchv1.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:    "busybox",
+							Image:   "busybox:latest",
+							Command: []string{"echo", "hello world"},
+						},
+					},
+					RestartPolicy: corev1.RestartPolicyNever,
+				},
+			},
+		},
+	}
+
+	_, err = kubeClient.Clientset.BatchV1().Jobs(testNamespace).Create(ctx, job, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create job: %v", err)
+	}
+
+	// Perform backup
+	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
+	err = backupManager.PerformBackup(ctx)
+	if err != nil {
+		t.Fatalf("Backup failed: %v", err)
+	}
+
+	// Edit the Job
+	job, err = kubeClient.Clientset.BatchV1().Jobs(testNamespace).Get(ctx, jobName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get job: %v", err)
+	}
+	if job.Labels == nil {
+		job.Labels = make(map[string]string)
+	}
+	job.Labels["test-label"] = "updated"
+	_, err = kubeClient.Clientset.BatchV1().Jobs(testNamespace).Update(ctx, job, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to update job: %v", err)
+	}
+
+	// Perform restore
+	testConfig.Mode = "restore"
+	testConfig.RestoreDir = testConfig.BackupDir
+	restoreManager := restore.NewManager(kubeClient, log)
+	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
+	if err != nil {
+		t.Fatalf("Restore failed: %v", err)
+	}
+
+	// Confirm the Job's settings were restored to original
+	job, err = kubeClient.Clientset.BatchV1().Jobs(testNamespace).Get(ctx, jobName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get job: %v", err)
+	}
+	if _, exists := job.Labels["test-label"]; exists {
+		t.Fatalf("Expected test-label to be removed, but it still exists")
+	}
+}
+
 func TestBackupAndRestorePersistentVolumeClaim(t *testing.T) {
 	ctx := context.Background()
 	testNamespace := "test-pvc-namespace"
