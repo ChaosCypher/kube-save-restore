@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/chaoscypher/kube-save-restore/internal/kubernetes"
 	"github.com/chaoscypher/kube-save-restore/internal/logger"
@@ -38,22 +40,44 @@ func (m *Manager) PerformRestore(restoreDir string, dryRun bool) error {
 		return fmt.Errorf("error getting resource files: %v", err)
 	}
 
+	// Separate namespace files from other resource files
+	namespaceFiles, otherFiles := m.separateNamespaceFiles(files)
+
 	// Count the total number of resources to be restored
-	totalResources := m.countResources(files)
+	totalResources := len(namespaceFiles) + len(otherFiles)
 
 	if dryRun {
 		m.logger.Info("Dry run mode: No resources will be created or modified")
 	}
 
-	// Initialize the worker pool with a maximum concurrency and total resources
-	wp := workerpool.NewWorkerPool(maxConcurrency, totalResources)
-	m.enqueueTasks(files, wp, dryRun)
+	// First, restore namespaces to ensure they exist before other resources
+	if len(namespaceFiles) > 0 {
+		m.logger.Info("Restoring namespaces first...")
+		nsWp := workerpool.NewWorkerPool(maxConcurrency, len(namespaceFiles))
+		m.enqueueTasks(namespaceFiles, nsWp, dryRun)
 
-	// Run the worker pool and collect any errors
-	errors := wp.Run(context.Background())
-	if len(errors) > 0 {
-		for _, err := range errors {
-			m.logger.Errorf("Error during restore: %v", err)
+		// Run the namespace worker pool and collect any errors
+		nsErrors := nsWp.Run(context.Background())
+		if len(nsErrors) > 0 {
+			for _, err := range nsErrors {
+				m.logger.Errorf("Error restoring namespace: %v", err)
+			}
+		}
+		m.logger.Info("Namespace restoration completed")
+	}
+
+	// Then restore other resources using the worker pool
+	if len(otherFiles) > 0 {
+		m.logger.Info("Restoring other resources...")
+		wp := workerpool.NewWorkerPool(maxConcurrency, len(otherFiles))
+		m.enqueueTasks(otherFiles, wp, dryRun)
+
+		// Run the worker pool and collect any errors
+		errors := wp.Run(context.Background())
+		if len(errors) > 0 {
+			for _, err := range errors {
+				m.logger.Errorf("Error during restore: %v", err)
+			}
 		}
 	}
 
@@ -116,4 +140,22 @@ func (m *Manager) RestoreResource(filename string, dryRun bool) error {
 	name, namespace := getResourceIdentifiers(resource)
 	m.logger.Infof("Restoring %s/%s in namespace %s", kind, name, namespace)
 	return applyResource(m.k8sClient, resource, kind, namespace)
+}
+
+// separateNamespaceFiles separates namespace files from other resource files
+func (m *Manager) separateNamespaceFiles(files []string) ([]string, []string) {
+	var namespaceFiles []string
+	var otherFiles []string
+
+	for _, file := range files {
+		// Check if the file is in the namespaces directory
+		dir := filepath.Dir(file)
+		if filepath.Base(dir) == "namespaces" || strings.Contains(filepath.ToSlash(dir), "/namespaces/") {
+			namespaceFiles = append(namespaceFiles, file)
+		} else {
+			otherFiles = append(otherFiles, file)
+		}
+	}
+
+	return namespaceFiles, otherFiles
 }

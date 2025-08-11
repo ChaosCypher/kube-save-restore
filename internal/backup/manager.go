@@ -59,6 +59,11 @@ func (bm *Manager) PerformBackup(ctx context.Context) error {
 
 	g, ctx := errgroup.WithContext(ctx)
 
+	// First, backup namespaces themselves
+	g.Go(func() error {
+		return bm.backupNamespaces(ctx)
+	})
+
 	// Enqueue backup tasks using errgroup
 	for _, ns := range namespaces {
 		for _, resourceType := range resourceTypes {
