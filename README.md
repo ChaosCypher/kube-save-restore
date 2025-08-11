@@ -196,3 +196,17 @@ If you find a bug or have a suggestion for improvement:
 1. Check the [existing issues](https://github.com/chaoscypher/kube-save-restore/issues) to avoid duplicates.
 2. If your issue isn't already listed, [open a new issue](https://github.com/chaoscypher/kube-save-restore/issues/new).
 3. Clearly describe the problem or suggestion, including steps to reproduce if applicable.
+
+## License
+
+kube-save-restore is open-source software licensed under the [MIT License](LICENSE).
+
+## Contact
+
+For any inquiries or support, please open an issue on the [GitHub repository](https://github.com/chaoscypher/kube-save-restore).
+
+---
+
+<p align="center">
+  Made with ❤️ by <a href="https://github.com/ChaosCypher">ChaosCypher</a>
+</p>
