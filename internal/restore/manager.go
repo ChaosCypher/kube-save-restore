@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/chaoscypher/kube-save-restore/internal/kubernetes"
@@ -148,7 +149,8 @@ func (m *Manager) separateNamespaceFiles(files []string) ([]string, []string) {
 
 	for _, file := range files {
 		// Check if the file is in the namespaces directory
-		if strings.Contains(file, "/namespaces/") {
+		dir := filepath.Dir(file)
+		if filepath.Base(dir) == "namespaces" || strings.Contains(filepath.ToSlash(dir), "/namespaces/") {
 			namespaceFiles = append(namespaceFiles, file)
 		} else {
 			otherFiles = append(otherFiles, file)
