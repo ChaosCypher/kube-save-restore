@@ -55,7 +55,17 @@ func validateResource(resource map[string]interface{}) error {
 		return fmt.Errorf("resource metadata not found")
 	}
 
-	requiredFields := []string{"name", "namespace"}
+	// Get the kind to determine required fields
+	kind, _ := resource["kind"].(string)
+
+	// Namespaces are cluster-scoped and don't require a namespace field
+	var requiredFields []string
+	if kind == "Namespace" {
+		requiredFields = []string{"name"}
+	} else {
+		requiredFields = []string{"name", "namespace"}
+	}
+
 	missingFields := []string{}
 
 	for _, field := range requiredFields {
@@ -77,5 +87,11 @@ func getResourceIdentifiers(resource map[string]interface{}) (string, string) {
 	metadata := resource["metadata"].(map[string]interface{})
 	name, _ := metadata["name"].(string)
 	namespace, _ := metadata["namespace"].(string)
+
+	// For cluster-scoped resources like namespaces, namespace will be empty
+	if namespace == "" && resource["kind"] == "Namespace" {
+		namespace = "cluster-scoped"
+	}
+
 	return name, namespace
 }

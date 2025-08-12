@@ -18,7 +18,9 @@ type ClientInterface interface {
 	StatefulSetLister
 	HorizontalPodAutoscalerLister
 	CronJobLister
+	JobLister
 	PersistentVolumeClaimLister
+	IngressLister
 }
 
 // Client implements the ClientInterface

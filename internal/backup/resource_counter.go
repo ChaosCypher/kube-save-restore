@@ -14,7 +14,20 @@ func (bm *Manager) countResources(ctx context.Context) int {
 	}
 
 	var wg sync.WaitGroup
-	resourceCounts := make(chan int, len(namespaces))
+	resourceCounts := make(chan int, len(namespaces)+1) // +1 for namespace count
+
+	// Count namespaces themselves
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		count, err := bm.countNamespaces(ctx)
+		if err != nil {
+			bm.logger.Errorf("Error counting namespaces: %v", err)
+			resourceCounts <- 0
+		} else {
+			resourceCounts <- count
+		}
+	}()
 
 	for _, ns := range namespaces {
 		wg.Add(1)
@@ -48,7 +61,9 @@ func (bm *Manager) countResourcesInNamespace(ctx context.Context, namespace stri
 		"statefulsets": bm.countStatefulSets,
 		"hpas":         bm.countHorizontalPodAutoscalers,
 		"cronjobs":     bm.countCronJobs,
+		"jobs":         bm.countJobs,
 		"pvcs":         bm.countPersistentVolumeClaims,
+		"ingresses":    bm.countIngresses,
 	}
 
 	var wg sync.WaitGroup
@@ -144,4 +159,28 @@ func (bm *Manager) countPersistentVolumeClaims(ctx context.Context, namespace st
 		return 0, err
 	}
 	return len(pvcs.Items), nil
+}
+
+func (bm *Manager) countJobs(ctx context.Context, namespace string) (int, error) {
+	jobs, err := bm.client.ListJobs(ctx, namespace)
+	if err != nil {
+		return 0, err
+	}
+	return len(jobs.Items), nil
+}
+
+func (bm *Manager) countIngresses(ctx context.Context, namespace string) (int, error) {
+	ingresses, err := bm.client.ListIngresses(ctx, namespace)
+	if err != nil {
+		return 0, err
+	}
+	return len(ingresses.Items), nil
+}
+
+func (bm *Manager) countNamespaces(ctx context.Context) (int, error) {
+	namespaces, err := bm.client.GetNamespaces(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return len(namespaces.Items), nil
 }

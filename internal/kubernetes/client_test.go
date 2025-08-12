@@ -11,6 +11,7 @@ import (
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
@@ -354,5 +355,24 @@ func TestListPersistentVolumeClaims(t *testing.T) {
 
 	if pvcs.Items[0].Name != "test-pvc" {
 		t.Fatalf("expected pvc name to be 'test-pvc', got %s", pvcs.Items[0].Name)
+	}
+}
+
+func TestListIngresses(t *testing.T) {
+	client := &Client{Clientset: fake.NewSimpleClientset(&networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-ingress", Namespace: "default"},
+	})}
+
+	ingresses, err := client.ListIngresses(context.Background(), "default")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if len(ingresses.Items) != 1 {
+		t.Fatalf("expected 1 ingress, got %d", len(ingresses.Items))
+	}
+
+	if ingresses.Items[0].Name != "test-ingress" {
+		t.Fatalf("expected ingress name to be 'test-ingress', got %s", ingresses.Items[0].Name)
 	}
 }
