@@ -74,6 +74,12 @@ func (m *MockKubernetesClient) ListCronJobs(ctx context.Context, namespace strin
 	return args.Get(0).(*batchv1.CronJobList), args.Error(1)
 }
 
+// ListJobs mocks the ListJobs method of the KubernetesClient interface
+func (m *MockKubernetesClient) ListJobs(ctx context.Context, namespace string) (*batchv1.JobList, error) {
+	args := m.Called(ctx, namespace)
+	return args.Get(0).(*batchv1.JobList), args.Error(1)
+}
+
 // ListPersistentVolumeClaims mocks the ListPersistentVolumeClaims method of the KubernetesClient interface
 func (m *MockKubernetesClient) ListPersistentVolumeClaims(ctx context.Context, namespace string) (*corev1.PersistentVolumeClaimList, error) {
 	args := m.Called(ctx, namespace)
@@ -94,6 +100,7 @@ func setupMockClient() *MockKubernetesClient {
 	mockClient.On("ListStatefulSets", mock.Anything, "default").Return(&appsv1.StatefulSetList{Items: make([]appsv1.StatefulSet, 1)}, nil)
 	mockClient.On("ListHorizontalPodAutoscalers", mock.Anything, "default").Return(&autoscalingv2.HorizontalPodAutoscalerList{Items: make([]autoscalingv2.HorizontalPodAutoscaler, 1)}, nil)
 	mockClient.On("ListCronJobs", mock.Anything, "default").Return(&batchv1.CronJobList{Items: make([]batchv1.CronJob, 1)}, nil)
+	mockClient.On("ListJobs", mock.Anything, "default").Return(&batchv1.JobList{Items: make([]batchv1.Job, 1)}, nil)
 	mockClient.On("ListPersistentVolumeClaims", mock.Anything, "default").Return(&corev1.PersistentVolumeClaimList{Items: make([]corev1.PersistentVolumeClaim, 1)}, nil)
 	// Set up expectations for the kube-system namespace
 	mockClient.On("ListDeployments", mock.Anything, "kube-system").Return(&appsv1.DeploymentList{Items: make([]appsv1.Deployment, 2)}, nil)
@@ -103,6 +110,7 @@ func setupMockClient() *MockKubernetesClient {
 	mockClient.On("ListStatefulSets", mock.Anything, "kube-system").Return(&appsv1.StatefulSetList{Items: make([]appsv1.StatefulSet, 1)}, nil)
 	mockClient.On("ListHorizontalPodAutoscalers", mock.Anything, "kube-system").Return(&autoscalingv2.HorizontalPodAutoscalerList{Items: make([]autoscalingv2.HorizontalPodAutoscaler, 2)}, nil)
 	mockClient.On("ListCronJobs", mock.Anything, "kube-system").Return(&batchv1.CronJobList{Items: make([]batchv1.CronJob, 1)}, nil)
+	mockClient.On("ListJobs", mock.Anything, "kube-system").Return(&batchv1.JobList{Items: make([]batchv1.Job, 1)}, nil)
 	mockClient.On("ListPersistentVolumeClaims", mock.Anything, "kube-system").Return(&corev1.PersistentVolumeClaimList{Items: make([]corev1.PersistentVolumeClaim, 2)}, nil)
 	return mockClient
 }
@@ -169,10 +177,10 @@ func TestCountResources(t *testing.T) {
 	count := manager.countResources(context.Background())
 
 	// The total should be the sum of all resources in both namespaces
-	// default namespace: 8 (1 of each resource type)
-	// kube-system namespace: 20 (2+3+4+5+1+2+1+2)
+	// default namespace: 9 (1 of each resource type)
+	// kube-system namespace: 21 (2+3+4+5+1+2+1+1+2)
 	// namespaces: 2
-	expectedCount := 30
+	expectedCount := 32
 	assert.Equal(t, expectedCount, count)
 
 	mockClient.AssertExpectations(t)

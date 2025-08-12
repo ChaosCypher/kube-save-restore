@@ -18,6 +18,7 @@ type ClientInterface interface {
 	StatefulSetLister
 	HorizontalPodAutoscalerLister
 	CronJobLister
+	JobLister
 	PersistentVolumeClaimLister
 }
 

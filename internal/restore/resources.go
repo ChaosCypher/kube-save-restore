@@ -41,6 +41,8 @@ func applyResource(client *kubernetes.Client, resource map[string]interface{}, k
 		return applyHorizontalPodAutoscalers(client, adjustedData, namespace)
 	case "CronJob":
 		return applyCronJob(client, adjustedData, namespace)
+	case "Job":
+		return applyJob(client, adjustedData, namespace)
 	case "PersistentVolumeClaim":
 		return applyPersistentVolumeClaim(client, adjustedData, namespace)
 	default:
@@ -180,6 +182,18 @@ func applyPersistentVolumeClaim(client *kubernetes.Client, data []byte, namespac
 	_, err := client.Clientset.CoreV1().PersistentVolumeClaims(namespace).Update(context.TODO(), &pvc, metav1.UpdateOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		_, err = client.Clientset.CoreV1().PersistentVolumeClaims(namespace).Create(context.TODO(), &pvc, metav1.CreateOptions{})
+	}
+	return err
+}
+
+func applyJob(client *kubernetes.Client, data []byte, namespace string) error {
+	var job batchv1.Job
+	if err := json.Unmarshal(data, &job); err != nil {
+		return fmt.Errorf("error unmarshaling job: %v", err)
+	}
+	_, err := client.Clientset.BatchV1().Jobs(namespace).Update(context.TODO(), &job, metav1.UpdateOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		_, err = client.Clientset.BatchV1().Jobs(namespace).Create(context.TODO(), &job, metav1.CreateOptions{})
 	}
 	return err
 }
