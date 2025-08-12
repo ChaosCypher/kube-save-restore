@@ -63,6 +63,7 @@ func (bm *Manager) countResourcesInNamespace(ctx context.Context, namespace stri
 		"cronjobs":     bm.countCronJobs,
 		"jobs":         bm.countJobs,
 		"pvcs":         bm.countPersistentVolumeClaims,
+		"ingresses":    bm.countIngresses,
 	}
 
 	var wg sync.WaitGroup
@@ -166,6 +167,14 @@ func (bm *Manager) countJobs(ctx context.Context, namespace string) (int, error)
 		return 0, err
 	}
 	return len(jobs.Items), nil
+}
+
+func (bm *Manager) countIngresses(ctx context.Context, namespace string) (int, error) {
+	ingresses, err := bm.client.ListIngresses(ctx, namespace)
+	if err != nil {
+		return 0, err
+	}
+	return len(ingresses.Items), nil
 }
 
 func (bm *Manager) countNamespaces(ctx context.Context) (int, error) {

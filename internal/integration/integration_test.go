@@ -17,6 +17,7 @@ import (
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -1073,6 +1074,134 @@ func TestBackupAndRestorePersistentVolumeClaim(t *testing.T) {
 	}
 	if _, exists := pvc.Labels["test-label"]; exists {
 		t.Fatalf("Expected test-label to be removed, but it still exists")
+	}
+}
+
+func TestBackupAndRestoreIngress(t *testing.T) {
+	ctx := context.Background()
+	testNamespace := "test-ingress-namespace"
+	ingressName := "test-ingress"
+
+	// Setup test configuration
+	testConfig := &config.Config{
+		Mode:       "backup",
+		BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
+		KubeConfig: getTestKubeconfig(t),
+		Context:    "minikube",
+		DryRun:     false,
+	}
+
+	// Setup logger
+	log := logger.SetupLogger(testConfig)
+
+	// Create Kubernetes client
+	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
+	if err != nil {
+		t.Fatalf("Failed to create Kubernetes client: %v", err)
+	}
+
+	// Create the test namespace
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNamespace,
+		},
+	}
+	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create namespace: %v", err)
+	}
+
+	// Create an Ingress
+	pathType := networkingv1.PathTypePrefix
+	ingress := &networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ingressName,
+			Namespace: testNamespace,
+			Annotations: map[string]string{
+				"nginx.ingress.kubernetes.io/rewrite-target": "/",
+			},
+		},
+		Spec: networkingv1.IngressSpec{
+			Rules: []networkingv1.IngressRule{
+				{
+					Host: "test.example.com",
+					IngressRuleValue: networkingv1.IngressRuleValue{
+						HTTP: &networkingv1.HTTPIngressRuleValue{
+							Paths: []networkingv1.HTTPIngressPath{
+								{
+									Path:     "/app",
+									PathType: &pathType,
+									Backend: networkingv1.IngressBackend{
+										Service: &networkingv1.IngressServiceBackend{
+											Name: "test-service",
+											Port: networkingv1.ServiceBackendPort{
+												Number: 80,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, err = kubeClient.Clientset.NetworkingV1().Ingresses(testNamespace).Create(ctx, ingress, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create Ingress: %v", err)
+	}
+
+	// Perform backup
+	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
+	err = backupManager.PerformBackup(ctx)
+	if err != nil {
+		t.Fatalf("Backup failed: %v", err)
+	}
+
+	// Edit the Ingress
+	ingress, err = kubeClient.Clientset.NetworkingV1().Ingresses(testNamespace).Get(ctx, ingressName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get Ingress: %v", err)
+	}
+	ingress.Spec.Rules[0].Host = "updated.example.com"
+	_, err = kubeClient.Clientset.NetworkingV1().Ingresses(testNamespace).Update(ctx, ingress, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to update Ingress: %v", err)
+	}
+
+	// Perform restore
+	testConfig.Mode = "restore"
+	testConfig.RestoreDir = testConfig.BackupDir
+	restoreManager := restore.NewManager(kubeClient, log)
+	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
+	if err != nil {
+		t.Fatalf("Restore failed: %v", err)
+	}
+
+	// Confirm the Ingress's settings were restored
+	ingress, err = kubeClient.Clientset.NetworkingV1().Ingresses(testNamespace).Get(ctx, ingressName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get Ingress: %v", err)
+	}
+	if ingress.Spec.Rules[0].Host != "test.example.com" {
+		t.Fatalf("Expected host to be test.example.com, got %s", ingress.Spec.Rules[0].Host)
+	}
+
+	// Verify backup directory structure
+	ingressBackupDir := filepath.Join(testConfig.BackupDir, testNamespace, "ingresses")
+	info, err := os.Stat(ingressBackupDir)
+	if err != nil {
+		t.Fatalf("Ingress backup directory does not exist: %v", err)
+	}
+	if !info.IsDir() {
+		t.Fatalf("Ingress backup path is not a directory")
+	}
+
+	// Verify the ingress backup file exists
+	ingressBackupFile := filepath.Join(ingressBackupDir, ingressName+".json")
+	if _, err := os.Stat(ingressBackupFile); err != nil {
+		t.Fatalf("Ingress backup file does not exist: %v", err)
 	}
 }
 
