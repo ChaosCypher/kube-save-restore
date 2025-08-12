@@ -1077,6 +1077,113 @@ func TestBackupAndRestorePersistentVolumeClaim(t *testing.T) {
 	}
 }
 
+func TestBackupAndRestoreServiceAccount(t *testing.T) {
+	ctx := context.Background()
+	testNamespace := "test-serviceaccount-namespace"
+	serviceAccountName := "test-serviceaccount"
+
+	// Setup test configuration
+	testConfig := &config.Config{
+		Mode:       "backup",
+		BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
+		KubeConfig: getTestKubeconfig(t),
+		Context:    "minikube",
+		DryRun:     false,
+	}
+
+	// Setup logger
+	log := logger.SetupLogger(testConfig)
+
+	// Create Kubernetes client
+	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
+	if err != nil {
+		t.Fatalf("Failed to create Kubernetes client: %v", err)
+	}
+
+	// Create the test namespace
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNamespace,
+		},
+	}
+	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create namespace: %v", err)
+	}
+
+	// Create a ServiceAccount
+	serviceAccount := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceAccountName,
+			Namespace: testNamespace,
+			Labels: map[string]string{
+				"app": "test",
+			},
+		},
+		AutomountServiceAccountToken: boolPtr(true),
+	}
+	_, err = kubeClient.Clientset.CoreV1().ServiceAccounts(testNamespace).Create(ctx, serviceAccount, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create ServiceAccount: %v", err)
+	}
+
+	// Perform backup
+	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
+	err = backupManager.PerformBackup(ctx)
+	if err != nil {
+		t.Fatalf("Backup failed: %v", err)
+	}
+
+	// Edit the ServiceAccount
+	serviceAccount, err = kubeClient.Clientset.CoreV1().ServiceAccounts(testNamespace).Get(ctx, serviceAccountName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get ServiceAccount: %v", err)
+	}
+	serviceAccount.Labels["environment"] = "production"
+	serviceAccount.AutomountServiceAccountToken = boolPtr(false)
+	_, err = kubeClient.Clientset.CoreV1().ServiceAccounts(testNamespace).Update(ctx, serviceAccount, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to update ServiceAccount: %v", err)
+	}
+
+	// Perform restore
+	testConfig.Mode = "restore"
+	testConfig.RestoreDir = testConfig.BackupDir
+	restoreManager := restore.NewManager(kubeClient, log)
+	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
+	if err != nil {
+		t.Fatalf("Restore failed: %v", err)
+	}
+
+	// Confirm the ServiceAccount's settings were restored
+	serviceAccount, err = kubeClient.Clientset.CoreV1().ServiceAccounts(testNamespace).Get(ctx, serviceAccountName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get ServiceAccount: %v", err)
+	}
+	if _, exists := serviceAccount.Labels["environment"]; exists {
+		t.Fatalf("Expected environment label to be removed, but it still exists")
+	}
+	if serviceAccount.AutomountServiceAccountToken == nil || *serviceAccount.AutomountServiceAccountToken != true {
+		t.Fatalf("Expected AutomountServiceAccountToken to be true, got %v", serviceAccount.AutomountServiceAccountToken)
+	}
+
+	// Verify backup directory structure
+	serviceAccountBackupDir := filepath.Join(testConfig.BackupDir, testNamespace, "serviceaccounts")
+	info, err := os.Stat(serviceAccountBackupDir)
+	if err != nil {
+		t.Fatalf("ServiceAccount backup directory does not exist: %v", err)
+	}
+	if !info.IsDir() {
+		t.Fatalf("ServiceAccount backup path is not a directory")
+	}
+
+	// Verify the serviceaccount backup file exists
+	serviceAccountBackupFile := filepath.Join(serviceAccountBackupDir, serviceAccountName+".json")
+	if _, err := os.Stat(serviceAccountBackupFile); err != nil {
+		t.Fatalf("ServiceAccount backup file does not exist: %v", err)
+	}
+}
+
 func TestBackupAndRestoreIngress(t *testing.T) {
 	ctx := context.Background()
 	testNamespace := "test-ingress-namespace"
@@ -1206,3 +1313,5 @@ func TestBackupAndRestoreIngress(t *testing.T) {
 }
 
 func int32Ptr(i int32) *int32 { return &i }
+
+func boolPtr(b bool) *bool { return &b }

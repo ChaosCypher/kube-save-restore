@@ -36,6 +36,8 @@ func applyResource(client *kubernetes.Client, resource map[string]interface{}, k
 		return applyConfigMap(client, adjustedData, namespace)
 	case "Secret":
 		return applySecret(client, adjustedData, namespace)
+	case "ServiceAccount":
+		return applyServiceAccount(client, adjustedData, namespace)
 	case "StatefulSet":
 		return applyStatefulSet(client, adjustedData, namespace)
 	case "HorizontalPodAutoscaler":
@@ -124,6 +126,21 @@ func applySecret(client *kubernetes.Client, data []byte, namespace string) error
 	_, err := client.Clientset.CoreV1().Secrets(namespace).Update(context.TODO(), &secret, metav1.UpdateOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		_, err = client.Clientset.CoreV1().Secrets(namespace).Create(context.TODO(), &secret, metav1.CreateOptions{})
+	}
+	return err
+}
+
+// applyServiceAccount applies a ServiceAccount resource to the Kubernetes cluster
+func applyServiceAccount(client *kubernetes.Client, data []byte, namespace string) error {
+	var serviceAccount corev1.ServiceAccount
+	// Unmarshal the JSON data into a ServiceAccount object
+	if err := json.Unmarshal(data, &serviceAccount); err != nil {
+		return fmt.Errorf("error unmarshaling service account: %v", err)
+	}
+	// Try to update the ServiceAccount, if it does not exist, create it
+	_, err := client.Clientset.CoreV1().ServiceAccounts(namespace).Update(context.TODO(), &serviceAccount, metav1.UpdateOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		_, err = client.Clientset.CoreV1().ServiceAccounts(namespace).Create(context.TODO(), &serviceAccount, metav1.CreateOptions{})
 	}
 	return err
 }

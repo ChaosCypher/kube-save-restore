@@ -18,6 +18,8 @@ func (bm *Manager) backupResource(ctx context.Context, resourceType, namespace s
 		err = bm.backupConfigMaps(ctx, namespace)
 	case "secrets":
 		err = bm.backupSecrets(ctx, namespace)
+	case "serviceaccounts":
+		err = bm.backupServiceAccounts(ctx, namespace)
 	case "statefulsets":
 		err = bm.backupStatefulSets(ctx, namespace)
 	case "hpas":
@@ -112,6 +114,27 @@ func (bm *Manager) backupSecrets(ctx context.Context, namespace string) error {
 			bm.logger.Infof("Would backup secret: %s/%s", namespace, secret.Name)
 		} else {
 			if err := bm.saveResource(secret, "Secret", filename); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// backupServiceAccounts backs up all service accounts in a given namespace
+func (bm *Manager) backupServiceAccounts(ctx context.Context, namespace string) error {
+	serviceAccounts, err := bm.client.ListServiceAccounts(ctx, namespace)
+	if err != nil {
+		return fmt.Errorf("error listing service accounts in namespace %s: %v", namespace, err)
+	}
+
+	for _, serviceAccount := range serviceAccounts.Items {
+		filename := filepath.Join(bm.backupDir, namespace, "serviceaccounts", serviceAccount.Name+".json")
+		if bm.dryRun {
+			bm.logger.Infof("Would backup service account: %s/%s", namespace, serviceAccount.Name)
+		} else {
+			if err := bm.saveResource(serviceAccount, "ServiceAccount", filename); err != nil {
 				return err
 			}
 		}
