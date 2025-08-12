@@ -834,8 +834,8 @@ func TestBackupAndRestoreDaemonSet(t *testing.T) {
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:  "busybox",
-							Image: "busybox:latest",
+							Name:    "busybox",
+							Image:   "busybox:latest",
 							Command: []string{"sleep", "3600"},
 						},
 					},
