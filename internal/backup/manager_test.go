@@ -186,9 +186,10 @@ func TestCountResources(t *testing.T) {
 	count := manager.countResources(context.Background())
 
 	// The total should be the sum of all resources in both namespaces
+	// and cluster-wide resources
 	// default namespace: 10 (1 of each resource type)
 	// kube-system namespace: 23 (2+3+4+5+1+2+1+1+2+2)
-	// namespaces: 2
+	// cluster-wide: 2
 	expectedCount := 35
 	assert.Equal(t, expectedCount, count)
 
