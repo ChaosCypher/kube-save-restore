@@ -25,6 +25,8 @@ func applyResource(client *kubernetes.Client, resource map[string]interface{}, k
 
 	// Switch based on the kind of resource and call the appropriate function
 	switch kind {
+	case "Namespace":
+		return applyNamespace(client, adjustedData)
 	case "Deployment":
 		return applyDeployment(client, adjustedData, namespace)
 	case "Service":
@@ -39,11 +41,28 @@ func applyResource(client *kubernetes.Client, resource map[string]interface{}, k
 		return applyHorizontalPodAutoscalers(client, adjustedData, namespace)
 	case "CronJob":
 		return applyCronJob(client, adjustedData, namespace)
+	case "Job":
+		return applyJob(client, adjustedData, namespace)
 	case "PersistentVolumeClaim":
 		return applyPersistentVolumeClaim(client, adjustedData, namespace)
 	default:
 		return fmt.Errorf("unsupported resource kind: %s", kind)
 	}
+}
+
+// applyNamespace applies a Namespace resource to the Kubernetes cluster
+func applyNamespace(client *kubernetes.Client, data []byte) error {
+	var namespace corev1.Namespace
+	// Unmarshal the JSON data into a Namespace object
+	if err := json.Unmarshal(data, &namespace); err != nil {
+		return fmt.Errorf("error unmarshaling namespace: %v", err)
+	}
+	// Try to update the Namespace, if it does not exist, create it
+	_, err := client.Clientset.CoreV1().Namespaces().Update(context.TODO(), &namespace, metav1.UpdateOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		_, err = client.Clientset.CoreV1().Namespaces().Create(context.TODO(), &namespace, metav1.CreateOptions{})
+	}
+	return err
 }
 
 // applyDeployment applies a Deployment resource to the Kubernetes cluster
@@ -163,6 +182,18 @@ func applyPersistentVolumeClaim(client *kubernetes.Client, data []byte, namespac
 	_, err := client.Clientset.CoreV1().PersistentVolumeClaims(namespace).Update(context.TODO(), &pvc, metav1.UpdateOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		_, err = client.Clientset.CoreV1().PersistentVolumeClaims(namespace).Create(context.TODO(), &pvc, metav1.CreateOptions{})
+	}
+	return err
+}
+
+func applyJob(client *kubernetes.Client, data []byte, namespace string) error {
+	var job batchv1.Job
+	if err := json.Unmarshal(data, &job); err != nil {
+		return fmt.Errorf("error unmarshaling job: %v", err)
+	}
+	_, err := client.Clientset.BatchV1().Jobs(namespace).Update(context.TODO(), &job, metav1.UpdateOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		_, err = client.Clientset.BatchV1().Jobs(namespace).Create(context.TODO(), &job, metav1.CreateOptions{})
 	}
 	return err
 }

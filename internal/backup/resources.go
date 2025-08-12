@@ -24,6 +24,8 @@ func (bm *Manager) backupResource(ctx context.Context, resourceType, namespace s
 		err = bm.backupHorizontalPodAutoscalers(ctx, namespace)
 	case "cronjobs":
 		err = bm.backupCronJobs(ctx, namespace)
+	case "jobs":
+		err = bm.backupJobs(ctx, namespace)
 	case "pvcs":
 		err = bm.backupPersistantVolumeClaims(ctx, namespace)
 	default:
@@ -192,6 +194,47 @@ func (bm *Manager) backupPersistantVolumeClaims(ctx context.Context, namespace s
 			bm.logger.Infof("Would backup pvc: %s/%s", namespace, pvc.Name)
 		} else {
 			if err := bm.saveResource(pvc, "PersistentVolumeClaim", filename); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// backupJobs backs up all jobs in a given namespace
+func (bm *Manager) backupJobs(ctx context.Context, namespace string) error {
+	jobs, err := bm.client.ListJobs(ctx, namespace)
+	if err != nil {
+		return fmt.Errorf("error listing jobs in namespace %s: %v", namespace, err)
+	}
+
+	for _, job := range jobs.Items {
+		filename := filepath.Join(bm.backupDir, namespace, "jobs", job.Name+".json")
+		if bm.dryRun {
+			bm.logger.Infof("Would backup job: %s/%s", namespace, job.Name)
+		} else {
+			if err := bm.saveResource(job, "Job", filename); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// backupNamespaces backs up all namespaces in the cluster
+func (bm *Manager) backupNamespaces(ctx context.Context) error {
+	namespaces, err := bm.client.GetNamespaces(ctx)
+	if err != nil {
+		return fmt.Errorf("error getting namespaces: %v", err)
+	}
+
+	for _, namespace := range namespaces.Items {
+		// Namespaces are cluster-scoped, so we store them in a special directory
+		filename := filepath.Join(bm.backupDir, "namespaces", namespace.Name+".json")
+		if bm.dryRun {
+			bm.logger.Infof("Would backup namespace: %s", namespace.Name)
+		} else {
+			if err := bm.saveResource(namespace, "Namespace", filename); err != nil {
 				return err
 			}
 		}
