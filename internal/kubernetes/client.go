@@ -11,6 +11,7 @@ import (
 // ClientInterface defines the methods that a Kubernetes client should implement
 type ClientInterface interface {
 	ConfigMapLister
+	DaemonSetLister
 	DeploymentLister
 	NamespaceLister
 	SecretLister

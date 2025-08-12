@@ -27,6 +27,9 @@ type KubernetesClient interface {
 	// ListConfigMaps returns a list of all config maps in the specified namespace
 	ListConfigMaps(ctx context.Context, namespace string) (*corev1.ConfigMapList, error)
 
+	// ListDaemonSets returns a list of all daemon sets in the specified namespace
+	ListDaemonSets(ctx context.Context, namespace string) (*appsv1.DaemonSetList, error)
+
 	// ListSecrets returns a list of all secrets in the specified namespace
 	ListSecrets(ctx context.Context, namespace string) (*corev1.SecretList, error)
 

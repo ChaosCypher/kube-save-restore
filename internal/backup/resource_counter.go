@@ -60,6 +60,7 @@ func (bm *Manager) countResourcesInNamespace(ctx context.Context, namespace stri
 		"secrets":         bm.countSecrets,
 		"serviceaccounts": bm.countServiceAccounts,
 		"statefulsets":    bm.countStatefulSets,
+		"daemonsets":      bm.countDaemonSets,
 		"hpas":            bm.countHorizontalPodAutoscalers,
 		"cronjobs":        bm.countCronJobs,
 		"jobs":            bm.countJobs,
@@ -144,6 +145,14 @@ func (bm *Manager) countStatefulSets(ctx context.Context, namespace string) (int
 		return 0, err
 	}
 	return len(statefulSets.Items), nil
+}
+
+func (bm *Manager) countDaemonSets(ctx context.Context, namespace string) (int, error) {
+	daemonSets, err := bm.client.ListDaemonSets(ctx, namespace)
+	if err != nil {
+		return 0, err
+	}
+	return len(daemonSets.Items), nil
 }
 
 func (bm *Manager) countHorizontalPodAutoscalers(ctx context.Context, namespace string) (int, error) {

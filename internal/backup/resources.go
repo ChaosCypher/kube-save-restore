@@ -22,6 +22,8 @@ func (bm *Manager) backupResource(ctx context.Context, resourceType, namespace s
 		err = bm.backupServiceAccounts(ctx, namespace)
 	case "statefulsets":
 		err = bm.backupStatefulSets(ctx, namespace)
+	case "daemonsets":
+		err = bm.backupDaemonSets(ctx, namespace)
 	case "hpas":
 		err = bm.backupHorizontalPodAutoscalers(ctx, namespace)
 	case "cronjobs":
@@ -156,6 +158,27 @@ func (bm *Manager) backupStatefulSets(ctx context.Context, namespace string) err
 			bm.logger.Infof("Would backup stateful set: %s/%s", namespace, statefulSet.Name)
 		} else {
 			if err := bm.saveResource(statefulSet, "StatefulSet", filename); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// backupDaemonSets backs up all daemon sets in a given namespace
+func (bm *Manager) backupDaemonSets(ctx context.Context, namespace string) error {
+	daemonSets, err := bm.client.ListDaemonSets(ctx, namespace)
+	if err != nil {
+		return fmt.Errorf("error listing daemon sets in namespace %s: %v", namespace, err)
+	}
+
+	for _, daemonSet := range daemonSets.Items {
+		filename := filepath.Join(bm.backupDir, namespace, "daemonsets", daemonSet.Name+".json")
+		if bm.dryRun {
+			bm.logger.Infof("Would backup daemon set: %s/%s", namespace, daemonSet.Name)
+		} else {
+			if err := bm.saveResource(daemonSet, "DaemonSet", filename); err != nil {
 				return err
 			}
 		}
