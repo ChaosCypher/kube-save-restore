@@ -780,6 +780,132 @@ func TestBackupAndRestoreStatefulSet(t *testing.T) {
 	}
 }
 
+func TestBackupAndRestoreDaemonSet(t *testing.T) {
+	ctx := context.Background()
+	testNamespace := "test-daemonset-namespace"
+	daemonsetName := "test-daemonset"
+
+	// Setup test configuration
+	testConfig := &config.Config{
+		Mode:       "backup",
+		BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
+		KubeConfig: getTestKubeconfig(t),
+		Context:    "minikube",
+		DryRun:     false,
+	}
+
+	// Setup logger
+	log := logger.SetupLogger(testConfig)
+
+	// Create Kubernetes client
+	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
+	if err != nil {
+		t.Fatalf("Failed to create Kubernetes client: %v", err)
+	}
+
+	// Create the test namespace
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNamespace,
+		},
+	}
+	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create namespace: %v", err)
+	}
+
+	// Create a daemonset
+	daemonset := &appsv1.DaemonSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      daemonsetName,
+			Namespace: testNamespace,
+			Labels: map[string]string{
+				"app": "test",
+			},
+		},
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "test"},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "test"},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "busybox",
+							Image: "busybox:latest",
+							Command: []string{"sleep", "3600"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	_, err = kubeClient.Clientset.AppsV1().DaemonSets(testNamespace).Create(ctx, daemonset, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create daemonset: %v", err)
+	}
+
+	// Perform backup
+	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
+	err = backupManager.PerformBackup(ctx)
+	if err != nil {
+		t.Fatalf("Backup failed: %v", err)
+	}
+
+	// Edit the daemonset
+	daemonset, err = kubeClient.Clientset.AppsV1().DaemonSets(testNamespace).Get(ctx, daemonsetName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get daemonset: %v", err)
+	}
+	daemonset.Labels["environment"] = "production"
+	daemonset.Spec.Template.Spec.Containers[0].Image = "busybox:1.35"
+	_, err = kubeClient.Clientset.AppsV1().DaemonSets(testNamespace).Update(ctx, daemonset, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to update daemonset: %v", err)
+	}
+
+	// Perform restore
+	testConfig.Mode = "restore"
+	testConfig.RestoreDir = testConfig.BackupDir
+	restoreManager := restore.NewManager(kubeClient, log)
+	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
+	if err != nil {
+		t.Fatalf("Restore failed: %v", err)
+	}
+
+	// Confirm the daemonset's settings were restored
+	daemonset, err = kubeClient.Clientset.AppsV1().DaemonSets(testNamespace).Get(ctx, daemonsetName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get daemonset: %v", err)
+	}
+	if _, exists := daemonset.Labels["environment"]; exists {
+		t.Fatalf("Expected environment label to be removed, but it still exists")
+	}
+	if daemonset.Spec.Template.Spec.Containers[0].Image != "busybox:latest" {
+		t.Fatalf("Expected image to be busybox:latest, got %s", daemonset.Spec.Template.Spec.Containers[0].Image)
+	}
+
+	// Verify backup directory structure
+	daemonsetBackupDir := filepath.Join(testConfig.BackupDir, testNamespace, "daemonsets")
+	info, err := os.Stat(daemonsetBackupDir)
+	if err != nil {
+		t.Fatalf("DaemonSet backup directory does not exist: %v", err)
+	}
+	if !info.IsDir() {
+		t.Fatalf("DaemonSet backup path is not a directory")
+	}
+
+	// Verify the daemonset backup file exists
+	daemonsetBackupFile := filepath.Join(daemonsetBackupDir, daemonsetName+".json")
+	if _, err := os.Stat(daemonsetBackupFile); err != nil {
+		t.Fatalf("DaemonSet backup file does not exist: %v", err)
+	}
+}
+
 func TestBackupAndRestoreCronJob(t *testing.T) {
 	ctx := context.Background()
 	testNamespace := "test-cronjob-namespace"

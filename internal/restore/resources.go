@@ -40,6 +40,8 @@ func applyResource(client *kubernetes.Client, resource map[string]interface{}, k
 		return applyServiceAccount(client, adjustedData, namespace)
 	case "StatefulSet":
 		return applyStatefulSet(client, adjustedData, namespace)
+	case "DaemonSet":
+		return applyDaemonSet(client, adjustedData, namespace)
 	case "HorizontalPodAutoscaler":
 		return applyHorizontalPodAutoscalers(client, adjustedData, namespace)
 	case "CronJob":
@@ -156,6 +158,21 @@ func applyStatefulSet(client *kubernetes.Client, data []byte, namespace string) 
 	_, err := client.Clientset.AppsV1().StatefulSets(namespace).Update(context.TODO(), &statefulSet, metav1.UpdateOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		_, err = client.Clientset.AppsV1().StatefulSets(namespace).Create(context.TODO(), &statefulSet, metav1.CreateOptions{})
+	}
+	return err
+}
+
+// applyDaemonSet applies a DaemonSet resource to the Kubernetes cluster
+func applyDaemonSet(client *kubernetes.Client, data []byte, namespace string) error {
+	var daemonSet appsv1.DaemonSet
+	// Unmarshal the JSON data into a DaemonSet object
+	if err := json.Unmarshal(data, &daemonSet); err != nil {
+		return fmt.Errorf("error unmarshaling daemon set: %v", err)
+	}
+	// Try to update the DaemonSet, if it does not exist, create it
+	_, err := client.Clientset.AppsV1().DaemonSets(namespace).Update(context.TODO(), &daemonSet, metav1.UpdateOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		_, err = client.Clientset.AppsV1().DaemonSets(namespace).Create(context.TODO(), &daemonSet, metav1.CreateOptions{})
 	}
 	return err
 }
