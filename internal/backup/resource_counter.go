@@ -14,7 +14,20 @@ func (bm *Manager) countResources(ctx context.Context) int {
 	}
 
 	var wg sync.WaitGroup
-	resourceCounts := make(chan int, len(namespaces))
+	resourceCounts := make(chan int, len(namespaces)+1) // +1 for namespace count
+
+	// Count namespaces themselves
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		count, err := bm.countNamespaces(ctx)
+		if err != nil {
+			bm.logger.Errorf("Error counting namespaces: %v", err)
+			resourceCounts <- 0
+		} else {
+			resourceCounts <- count
+		}
+	}()
 
 	for _, ns := range namespaces {
 		wg.Add(1)
@@ -153,4 +166,12 @@ func (bm *Manager) countJobs(ctx context.Context, namespace string) (int, error)
 		return 0, err
 	}
 	return len(jobs.Items), nil
+}
+
+func (bm *Manager) countNamespaces(ctx context.Context) (int, error) {
+	namespaces, err := bm.client.GetNamespaces(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return len(namespaces.Items), nil
 }

@@ -218,6 +218,26 @@ func (bm *Manager) backupJobs(ctx context.Context, namespace string) error {
 			}
 		}
 	}
+	return nil
+}
 
+// backupNamespaces backs up all namespaces in the cluster
+func (bm *Manager) backupNamespaces(ctx context.Context) error {
+	namespaces, err := bm.client.GetNamespaces(ctx)
+	if err != nil {
+		return fmt.Errorf("error getting namespaces: %v", err)
+	}
+
+	for _, namespace := range namespaces.Items {
+		// Namespaces are cluster-scoped, so we store them in a special directory
+		filename := filepath.Join(bm.backupDir, "namespaces", namespace.Name+".json")
+		if bm.dryRun {
+			bm.logger.Infof("Would backup namespace: %s", namespace.Name)
+		} else {
+			if err := bm.saveResource(namespace, "Namespace", filename); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }

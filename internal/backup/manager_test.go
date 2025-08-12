@@ -26,6 +26,12 @@ func (m *MockKubernetesClient) ListNamespaces(ctx context.Context) ([]string, er
 	return args.Get(0).([]string), args.Error(1)
 }
 
+// GetNamespaces mocks the GetNamespaces method of the KubernetesClient interface
+func (m *MockKubernetesClient) GetNamespaces(ctx context.Context) (*corev1.NamespaceList, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(*corev1.NamespaceList), args.Error(1)
+}
+
 // ListDeployments mocks the ListDeployments method of the KubernetesClient interface
 func (m *MockKubernetesClient) ListDeployments(ctx context.Context, namespace string) (*appsv1.DeploymentList, error) {
 	args := m.Called(ctx, namespace)
@@ -84,6 +90,7 @@ func (m *MockKubernetesClient) ListPersistentVolumeClaims(ctx context.Context, n
 func setupMockClient() *MockKubernetesClient {
 	mockClient := new(MockKubernetesClient)
 	mockClient.On("ListNamespaces", mock.Anything).Return([]string{"default", "kube-system"}, nil)
+	mockClient.On("GetNamespaces", mock.Anything).Return(&corev1.NamespaceList{Items: make([]corev1.Namespace, 2)}, nil)
 
 	// Set up expectations for the default namespace
 	mockClient.On("ListDeployments", mock.Anything, "default").Return(&appsv1.DeploymentList{Items: make([]appsv1.Deployment, 1)}, nil)
@@ -172,7 +179,8 @@ func TestCountResources(t *testing.T) {
 	// The total should be the sum of all resources in both namespaces
 	// default namespace: 9 (1 of each resource type)
 	// kube-system namespace: 21 (2+3+4+5+1+2+1+1+2)
-	expectedCount := 30
+	// namespaces: 2
+	expectedCount := 32
 	assert.Equal(t, expectedCount, count)
 
 	mockClient.AssertExpectations(t)
