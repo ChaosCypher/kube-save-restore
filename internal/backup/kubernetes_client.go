@@ -30,6 +30,9 @@ type KubernetesClient interface {
 	// ListSecrets returns a list of all secrets in the specified namespace
 	ListSecrets(ctx context.Context, namespace string) (*corev1.SecretList, error)
 
+	// ListServiceAccounts returns a list of all service accounts in the specified namespace
+	ListServiceAccounts(ctx context.Context, namespace string) (*corev1.ServiceAccountList, error)
+
 	// ListStatefulSets returns a list of all stateful sets in the specified namespace
 	ListStatefulSets(ctx context.Context, namespace string) (*appsv1.StatefulSetList, error)
 

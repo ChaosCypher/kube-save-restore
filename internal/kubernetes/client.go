@@ -14,6 +14,7 @@ type ClientInterface interface {
 	DeploymentLister
 	NamespaceLister
 	SecretLister
+	ServiceAccountLister
 	ServiceLister
 	StatefulSetLister
 	HorizontalPodAutoscalerLister

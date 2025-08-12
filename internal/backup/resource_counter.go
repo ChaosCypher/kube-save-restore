@@ -54,16 +54,17 @@ func (bm *Manager) countResources(ctx context.Context) int {
 // countResourcesInNamespace counts the resources in a single namespace
 func (bm *Manager) countResourcesInNamespace(ctx context.Context, namespace string) int {
 	resourceTypes := map[string]func(context.Context, string) (int, error){
-		"deployments":  bm.countDeployments,
-		"services":     bm.countServices,
-		"configmaps":   bm.countConfigMaps,
-		"secrets":      bm.countSecrets,
-		"statefulsets": bm.countStatefulSets,
-		"hpas":         bm.countHorizontalPodAutoscalers,
-		"cronjobs":     bm.countCronJobs,
-		"jobs":         bm.countJobs,
-		"pvcs":         bm.countPersistentVolumeClaims,
-		"ingresses":    bm.countIngresses,
+		"deployments":     bm.countDeployments,
+		"services":        bm.countServices,
+		"configmaps":      bm.countConfigMaps,
+		"secrets":         bm.countSecrets,
+		"serviceaccounts": bm.countServiceAccounts,
+		"statefulsets":    bm.countStatefulSets,
+		"hpas":            bm.countHorizontalPodAutoscalers,
+		"cronjobs":        bm.countCronJobs,
+		"jobs":            bm.countJobs,
+		"pvcs":            bm.countPersistentVolumeClaims,
+		"ingresses":       bm.countIngresses,
 	}
 
 	var wg sync.WaitGroup
@@ -127,6 +128,14 @@ func (bm *Manager) countSecrets(ctx context.Context, namespace string) (int, err
 		return 0, err
 	}
 	return len(secrets.Items), nil
+}
+
+func (bm *Manager) countServiceAccounts(ctx context.Context, namespace string) (int, error) {
+	serviceAccounts, err := bm.client.ListServiceAccounts(ctx, namespace)
+	if err != nil {
+		return 0, err
+	}
+	return len(serviceAccounts.Items), nil
 }
 
 func (bm *Manager) countStatefulSets(ctx context.Context, namespace string) (int, error) {
