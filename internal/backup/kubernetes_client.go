@@ -7,6 +7,7 @@ import (
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 )
 
 // KubernetesClient defines the interface for interacting with Kubernetes resources
@@ -43,4 +44,7 @@ type KubernetesClient interface {
 
 	// ListPersistentVolumeClaims returns a list of all persistent volume claims in the specified namespace
 	ListPersistentVolumeClaims(ctx context.Context, namespace string) (*corev1.PersistentVolumeClaimList, error)
+
+	// ListIngresses returns a list of all ingresses in the specified namespace
+	ListIngresses(ctx context.Context, namespace string) (*networkingv1.IngressList, error)
 }

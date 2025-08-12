@@ -11,6 +11,7 @@ import (
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -45,6 +46,8 @@ func applyResource(client *kubernetes.Client, resource map[string]interface{}, k
 		return applyJob(client, adjustedData, namespace)
 	case "PersistentVolumeClaim":
 		return applyPersistentVolumeClaim(client, adjustedData, namespace)
+	case "Ingress":
+		return applyIngress(client, adjustedData, namespace)
 	default:
 		return fmt.Errorf("unsupported resource kind: %s", kind)
 	}
@@ -194,6 +197,21 @@ func applyJob(client *kubernetes.Client, data []byte, namespace string) error {
 	_, err := client.Clientset.BatchV1().Jobs(namespace).Update(context.TODO(), &job, metav1.UpdateOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		_, err = client.Clientset.BatchV1().Jobs(namespace).Create(context.TODO(), &job, metav1.CreateOptions{})
+	}
+	return err
+}
+
+// applyIngress applies an Ingress resource to the Kubernetes cluster
+func applyIngress(client *kubernetes.Client, data []byte, namespace string) error {
+	var ingress networkingv1.Ingress
+	// Unmarshal the JSON data into an Ingress object
+	if err := json.Unmarshal(data, &ingress); err != nil {
+		return fmt.Errorf("error unmarshaling ingress: %v", err)
+	}
+	// Try to update the Ingress, if it does not exist, create it
+	_, err := client.Clientset.NetworkingV1().Ingresses(namespace).Update(context.TODO(), &ingress, metav1.UpdateOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		_, err = client.Clientset.NetworkingV1().Ingresses(namespace).Create(context.TODO(), &ingress, metav1.CreateOptions{})
 	}
 	return err
 }

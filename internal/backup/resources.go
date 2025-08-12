@@ -28,6 +28,8 @@ func (bm *Manager) backupResource(ctx context.Context, resourceType, namespace s
 		err = bm.backupJobs(ctx, namespace)
 	case "pvcs":
 		err = bm.backupPersistantVolumeClaims(ctx, namespace)
+	case "ingresses":
+		err = bm.backupIngresses(ctx, namespace)
 	default:
 		return fmt.Errorf("unknown resource type: %s", resourceType)
 	}
@@ -218,6 +220,27 @@ func (bm *Manager) backupJobs(ctx context.Context, namespace string) error {
 			}
 		}
 	}
+	return nil
+}
+
+// backupIngresses backs up all ingresses in a given namespace
+func (bm *Manager) backupIngresses(ctx context.Context, namespace string) error {
+	ingresses, err := bm.client.ListIngresses(ctx, namespace)
+	if err != nil {
+		return fmt.Errorf("error listing ingresses in namespace %s: %v", namespace, err)
+	}
+
+	for _, ingress := range ingresses.Items {
+		filename := filepath.Join(bm.backupDir, namespace, "ingresses", ingress.Name+".json")
+		if bm.dryRun {
+			bm.logger.Infof("Would backup ingress: %s/%s", namespace, ingress.Name)
+		} else {
+			if err := bm.saveResource(ingress, "Ingress", filename); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
