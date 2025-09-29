@@ -31,7 +31,7 @@ func (bm *Manager) backupResource(ctx context.Context, resourceType, namespace s
 	case "jobs":
 		err = bm.backupJobs(ctx, namespace)
 	case "pvcs":
-		err = bm.backupPersistantVolumeClaims(ctx, namespace)
+		err = bm.backupPersistentVolumeClaims(ctx, namespace)
 	case "ingresses":
 		err = bm.backupIngresses(ctx, namespace)
 	default:
@@ -230,8 +230,8 @@ func (bm *Manager) backupCronJobs(ctx context.Context, namespace string) error {
 	return nil
 }
 
-// backupPersistantVolumeClaims backs up all persistent volume claims in a given namespace
-func (bm *Manager) backupPersistantVolumeClaims(ctx context.Context, namespace string) error {
+// backupPersistentVolumeClaims backs up all persistent volume claims in a given namespace
+func (bm *Manager) backupPersistentVolumeClaims(ctx context.Context, namespace string) error {
 	pvcs, err := bm.client.ListPersistentVolumeClaims(ctx, namespace)
 	if err != nil {
 		return fmt.Errorf("error listing persistant volume claims in namespace %s: %v", namespace, err)
