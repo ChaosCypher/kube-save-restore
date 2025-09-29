@@ -77,7 +77,7 @@ func (bm *Manager) PerformBackup(ctx context.Context) error {
 
 	// Wait for all goroutines to finish
 	if err := g.Wait(); err != nil {
-		bm.logger.Errorf("Error during backup: %v", err)
+		return fmt.Errorf("backup failed: %v", err)
 	}
 
 	bm.logCompletionMessage(totalResources)
