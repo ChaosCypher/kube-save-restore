@@ -91,7 +91,7 @@ func (m *Manager) enqueueTasks(files []string, wp *workerpool.WorkerPool, dryRun
 	for _, file := range files {
 		resourceFile := file // capture range variable
 		task := func(ctx context.Context) error {
-			return m.RestoreResource(resourceFile, dryRun)
+			return m.RestoreResource(ctx, resourceFile, dryRun)
 		}
 		if err := wp.AddTask(task); err != nil {
 			m.logger.Errorf("Failed to add task for file %s: %v", resourceFile, err)
@@ -110,7 +110,7 @@ func (m *Manager) logCompletionMessage(totalResources int, dryRun bool, restoreD
 }
 
 // RestoreResource restores a single resource from the specified file. If dryRun is true, no changes will be made.
-func (m *Manager) RestoreResource(filename string, dryRun bool) error {
+func (m *Manager) RestoreResource(ctx context.Context, filename string, dryRun bool) error {
 	m.logger.Debugf("Restoring resource from file: %s", filename)
 
 	// Read the resource file
@@ -139,7 +139,7 @@ func (m *Manager) RestoreResource(filename string, dryRun bool) error {
 	// Get the resource identifiers and apply the resource to the Kubernetes cluster
 	name, namespace := getResourceIdentifiers(resource)
 	m.logger.Infof("Restoring %s/%s in namespace %s", kind, name, namespace)
-	return applyResource(m.k8sClient, resource, kind, namespace)
+	return applyResource(ctx, m.k8sClient, resource, kind, namespace)
 }
 
 // separateNamespaceFiles separates namespace files from other resource files
