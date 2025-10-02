@@ -1438,6 +1438,155 @@ func TestBackupAndRestoreIngress(t *testing.T) {
 	}
 }
 
+func TestBackupAndRestoreNetworkPolicy(t *testing.T) {
+	ctx := context.Background()
+	testNamespace := "test-networkpolicy-namespace"
+	networkPolicyName := "test-networkpolicy"
+
+	// Setup test configuration
+	testConfig := &config.Config{
+		Mode:       "backup",
+		BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
+		KubeConfig: getTestKubeconfig(t),
+		Context:    "minikube",
+		DryRun:     false,
+	}
+
+	// Setup logger
+	log := logger.SetupLogger(testConfig)
+
+	// Create Kubernetes client
+	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
+	if err != nil {
+		t.Fatalf("Failed to create Kubernetes client: %v", err)
+	}
+
+	// Create the test namespace
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNamespace,
+		},
+	}
+	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create namespace: %v", err)
+	}
+
+	// Create a NetworkPolicy
+	networkPolicy := &networkingv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      networkPolicyName,
+			Namespace: testNamespace,
+			Labels: map[string]string{
+				"app": "test",
+			},
+		},
+		Spec: networkingv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"role": "db",
+				},
+			},
+			PolicyTypes: []networkingv1.PolicyType{
+				networkingv1.PolicyTypeIngress,
+				networkingv1.PolicyTypeEgress,
+			},
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				{
+					From: []networkingv1.NetworkPolicyPeer{
+						{
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"role": "frontend",
+								},
+							},
+						},
+					},
+					Ports: []networkingv1.NetworkPolicyPort{
+						{
+							Protocol: func() *corev1.Protocol { p := corev1.ProtocolTCP; return &p }(),
+							Port:     &intstr.IntOrString{Type: intstr.Int, IntVal: 3306},
+						},
+					},
+				},
+			},
+			Egress: []networkingv1.NetworkPolicyEgressRule{
+				{
+					To: []networkingv1.NetworkPolicyPeer{
+						{
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"role": "backend",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, err = kubeClient.Clientset.NetworkingV1().NetworkPolicies(testNamespace).Create(ctx, networkPolicy, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create NetworkPolicy: %v", err)
+	}
+
+	// Perform backup
+	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
+	err = backupManager.PerformBackup(ctx)
+	if err != nil {
+		t.Fatalf("Backup failed: %v", err)
+	}
+
+	// Edit the NetworkPolicy
+	networkPolicy, err = kubeClient.Clientset.NetworkingV1().NetworkPolicies(testNamespace).Get(ctx, networkPolicyName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get NetworkPolicy: %v", err)
+	}
+	networkPolicy.Labels["environment"] = "production"
+	networkPolicy.Spec.Ingress[0].Ports[0].Port = &intstr.IntOrString{Type: intstr.Int, IntVal: 5432}
+	_, err = kubeClient.Clientset.NetworkingV1().NetworkPolicies(testNamespace).Update(ctx, networkPolicy, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to update NetworkPolicy: %v", err)
+	}
+
+	// Perform restore
+	testConfig.Mode = "restore"
+	testConfig.RestoreDir = testConfig.BackupDir
+	restoreManager := restore.NewManager(kubeClient, log)
+	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
+	if err != nil {
+		t.Fatalf("Restore failed: %v", err)
+	}
+
+	// Confirm the NetworkPolicy's settings were restored
+	networkPolicy, err = kubeClient.Clientset.NetworkingV1().NetworkPolicies(testNamespace).Get(ctx, networkPolicyName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get NetworkPolicy: %v", err)
+	}
+	if _, exists := networkPolicy.Labels["environment"]; exists {
+		t.Fatalf("Expected environment label to be removed, but it still exists")
+	}
+	if networkPolicy.Spec.Ingress[0].Ports[0].Port.IntVal != 3306 {
+		t.Fatalf("Expected port to be 3306, got %d", networkPolicy.Spec.Ingress[0].Ports[0].Port.IntVal)
+	}
+
+	// Verify backup directory structure
+	networkPolicyBackupDir := filepath.Join(testConfig.BackupDir, testNamespace, "networkpolicies")
+	info, err := os.Stat(networkPolicyBackupDir)
+	if err != nil {
+		t.Fatalf("NetworkPolicy backup directory does not exist: %v", err)
+	}
+	if !info.IsDir() {
+		t.Fatalf("NetworkPolicy backup path is not a directory")
+	}
+
+	// Verify the networkpolicy backup file exists
+	networkPolicyBackupFile := filepath.Join(networkPolicyBackupDir, networkPolicyName+".json")
+	if _, err := os.Stat(networkPolicyBackupFile); err != nil {
+		t.Fatalf("NetworkPolicy backup file does not exist: %v", err)
+	}
+}
+
 func int32Ptr(i int32) *int32 { return &i }
 
 func boolPtr(b bool) *bool { return &b }
