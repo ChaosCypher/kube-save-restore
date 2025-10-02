@@ -31,9 +31,11 @@ func (bm *Manager) backupResource(ctx context.Context, resourceType, namespace s
 	case "jobs":
 		err = bm.backupJobs(ctx, namespace)
 	case "pvcs":
-		err = bm.backupPersistantVolumeClaims(ctx, namespace)
+		err = bm.backupPersistentVolumeClaims(ctx, namespace)
 	case "ingresses":
 		err = bm.backupIngresses(ctx, namespace)
+	case "networkpolicies":
+		err = bm.backupNetworkPolicies(ctx, namespace)
 	default:
 		return fmt.Errorf("unknown resource type: %s", resourceType)
 	}
@@ -230,8 +232,8 @@ func (bm *Manager) backupCronJobs(ctx context.Context, namespace string) error {
 	return nil
 }
 
-// backupPersistantVolumeClaims backs up all persistent volume claims in a given namespace
-func (bm *Manager) backupPersistantVolumeClaims(ctx context.Context, namespace string) error {
+// backupPersistentVolumeClaims backs up all persistent volume claims in a given namespace
+func (bm *Manager) backupPersistentVolumeClaims(ctx context.Context, namespace string) error {
 	pvcs, err := bm.client.ListPersistentVolumeClaims(ctx, namespace)
 	if err != nil {
 		return fmt.Errorf("error listing persistant volume claims in namespace %s: %v", namespace, err)
@@ -282,6 +284,27 @@ func (bm *Manager) backupIngresses(ctx context.Context, namespace string) error 
 			bm.logger.Infof("Would backup ingress: %s/%s", namespace, ingress.Name)
 		} else {
 			if err := bm.saveResource(ingress, "Ingress", filename); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// backupNetworkPolicies backs up all network policies in a given namespace
+func (bm *Manager) backupNetworkPolicies(ctx context.Context, namespace string) error {
+	networkPolicies, err := bm.client.ListNetworkPolicies(ctx, namespace)
+	if err != nil {
+		return fmt.Errorf("error listing network policies in namespace %s: %v", namespace, err)
+	}
+
+	for _, networkPolicy := range networkPolicies.Items {
+		filename := filepath.Join(bm.backupDir, namespace, "networkpolicies", networkPolicy.Name+".json")
+		if bm.dryRun {
+			bm.logger.Infof("Would backup network policy: %s/%s", namespace, networkPolicy.Name)
+		} else {
+			if err := bm.saveResource(networkPolicy, "NetworkPolicy", filename); err != nil {
 				return err
 			}
 		}

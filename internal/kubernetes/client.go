@@ -23,6 +23,7 @@ type ClientInterface interface {
 	JobLister
 	PersistentVolumeClaimLister
 	IngressLister
+	NetworkPolicyLister
 }
 
 // Client implements the ClientInterface
