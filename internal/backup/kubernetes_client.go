@@ -57,4 +57,7 @@ type KubernetesClient interface {
 
 	// ListRoles returns a list of all roles in the specified namespace
 	ListRoles(ctx context.Context, namespace string) (*rbacv1.RoleList, error)
+
+	// ListNetworkPolicies returns a list of all network policies in the specified namespace
+	ListNetworkPolicies(ctx context.Context, namespace string) (*networkingv1.NetworkPolicyList, error)
 }

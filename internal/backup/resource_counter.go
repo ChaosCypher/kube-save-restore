@@ -67,6 +67,7 @@ func (bm *Manager) countResourcesInNamespace(ctx context.Context, namespace stri
 		"pvcs":            bm.countPersistentVolumeClaims,
 		"ingresses":       bm.countIngresses,
 		"roles":           bm.countRoles,
+		"networkpolicies": bm.countNetworkPolicies,
 	}
 
 	var wg sync.WaitGroup
@@ -194,6 +195,14 @@ func (bm *Manager) countIngresses(ctx context.Context, namespace string) (int, e
 		return 0, err
 	}
 	return len(ingresses.Items), nil
+}
+
+func (bm *Manager) countNetworkPolicies(ctx context.Context, namespace string) (int, error) {
+	networkPolicies, err := bm.client.ListNetworkPolicies(ctx, namespace)
+	if err != nil {
+		return 0, err
+	}
+	return len(networkPolicies.Items), nil
 }
 
 func (bm *Manager) countNamespaces(ctx context.Context) (int, error) {
