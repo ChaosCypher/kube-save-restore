@@ -53,4 +53,7 @@ type KubernetesClient interface {
 
 	// ListIngresses returns a list of all ingresses in the specified namespace
 	ListIngresses(ctx context.Context, namespace string) (*networkingv1.IngressList, error)
+
+	// ListNetworkPolicies returns a list of all network policies in the specified namespace
+	ListNetworkPolicies(ctx context.Context, namespace string) (*networkingv1.NetworkPolicyList, error)
 }

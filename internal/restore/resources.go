@@ -52,6 +52,8 @@ func applyResource(client *kubernetes.Client, resource map[string]interface{}, k
 		return applyPersistentVolumeClaim(client, adjustedData, namespace)
 	case "Ingress":
 		return applyIngress(client, adjustedData, namespace)
+	case "NetworkPolicy":
+		return applyNetworkPolicy(client, adjustedData, namespace)
 	default:
 		return fmt.Errorf("unsupported resource kind: %s", kind)
 	}
@@ -246,6 +248,21 @@ func applyIngress(client *kubernetes.Client, data []byte, namespace string) erro
 	_, err := client.Clientset.NetworkingV1().Ingresses(namespace).Update(context.TODO(), &ingress, metav1.UpdateOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		_, err = client.Clientset.NetworkingV1().Ingresses(namespace).Create(context.TODO(), &ingress, metav1.CreateOptions{})
+	}
+	return err
+}
+
+// applyNetworkPolicy applies a NetworkPolicy resource to the Kubernetes cluster
+func applyNetworkPolicy(client *kubernetes.Client, data []byte, namespace string) error {
+	var networkPolicy networkingv1.NetworkPolicy
+	// Unmarshal the JSON data into a NetworkPolicy object
+	if err := json.Unmarshal(data, &networkPolicy); err != nil {
+		return fmt.Errorf("error unmarshaling network policy: %v", err)
+	}
+	// Try to update the NetworkPolicy, if it does not exist, create it
+	_, err := client.Clientset.NetworkingV1().NetworkPolicies(namespace).Update(context.TODO(), &networkPolicy, metav1.UpdateOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		_, err = client.Clientset.NetworkingV1().NetworkPolicies(namespace).Create(context.TODO(), &networkPolicy, metav1.CreateOptions{})
 	}
 	return err
 }
