@@ -1513,7 +1513,11 @@ func TestBackupAndRestoreRoleBinding(t *testing.T) {
 		t.Fatalf("Failed to get RoleBinding: %v", err)
 	}
 	roleBinding.Labels["environment"] = "production"
-	roleBinding.RoleRef.Name = "edit"
+	roleBinding.Subjects = append(roleBinding.Subjects, rbacv1.Subject{
+		Kind:      "ServiceAccount",
+		Name:      "extra-sa",
+		Namespace: testNamespace,
+	})
 	_, err = kubeClient.Clientset.RbacV1().RoleBindings(testNamespace).Update(ctx, roleBinding, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("Failed to update RoleBinding: %v", err)
@@ -1536,8 +1540,8 @@ func TestBackupAndRestoreRoleBinding(t *testing.T) {
 	if _, exists := roleBinding.Labels["environment"]; exists {
 		t.Fatalf("Expected environment label to be removed, but it still exists")
 	}
-	if roleBinding.RoleRef.Name != "view" {
-		t.Fatalf("Expected RoleRef.Name to be view, got %s", roleBinding.RoleRef.Name)
+	if len(roleBinding.Subjects) != 1 || roleBinding.Subjects[0].Name != "default" {
+		t.Fatalf("Expected Subjects to be restored to original single subject 'default', got %v", roleBinding.Subjects)
 	}
 
 	// Verify backup directory structure
