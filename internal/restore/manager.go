@@ -126,7 +126,10 @@ func (m *Manager) RestoreResource(filename string, dryRun bool) error {
 	}
 
 	// Adjust the resource structure and validate it
-	resource, kind := adjustResourceStructure(rawResource)
+	resource, kind, err := adjustResourceStructure(rawResource)
+	if err != nil {
+		return fmt.Errorf("error adjusting resource structure: %v", err)
+	}
 	if err := validateResource(resource); err != nil {
 		return fmt.Errorf("invalid resource structure: %v", err)
 	}
@@ -137,7 +140,10 @@ func (m *Manager) RestoreResource(filename string, dryRun bool) error {
 	}
 
 	// Get the resource identifiers and apply the resource to the Kubernetes cluster
-	name, namespace := getResourceIdentifiers(resource)
+	name, namespace, err := getResourceIdentifiers(resource)
+	if err != nil {
+		return fmt.Errorf("error getting resource identifiers: %v", err)
+	}
 	m.logger.Infof("Restoring %s/%s in namespace %s", kind, name, namespace)
 	return applyResource(m.k8sClient, resource, kind, namespace)
 }

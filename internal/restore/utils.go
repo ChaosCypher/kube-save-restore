@@ -24,27 +24,38 @@ func getResourceFiles(restoreDir string) ([]string, error) {
 
 // adjustResourceStructure adjusts the structure of the rawResource map.
 // It ensures the resource has the correct "kind" and "apiVersion" fields.
-// It returns the adjusted resource and its kind.
-func adjustResourceStructure(rawResource map[string]interface{}) (map[string]interface{}, string) {
+// It returns the adjusted resource, its kind, and an error if type assertions fail.
+func adjustResourceStructure(rawResource map[string]interface{}) (map[string]interface{}, string, error) {
 	var resource map[string]interface{}
 	var kind string
 
 	if rawKind, ok := rawResource["kind"].(string); ok {
-		resource = rawResource["resource"].(map[string]interface{})
+		resourceMap, ok := rawResource["resource"].(map[string]interface{})
+		if !ok {
+			return nil, "", fmt.Errorf("expected resource field to be map[string]interface{}, got %T", rawResource["resource"])
+		}
+		resource = resourceMap
 		resource["kind"] = rawKind
 		resource["apiVersion"] = "v1"
 		kind = rawKind
 	} else {
 		resource = rawResource
-		kind = resource["kind"].(string)
+		kindStr, ok := resource["kind"].(string)
+		if !ok {
+			return nil, "", fmt.Errorf("expected kind field to be string, got %T", resource["kind"])
+		}
+		kind = kindStr
 	}
 
-	metadata := resource["metadata"].(map[string]interface{})
+	metadata, ok := resource["metadata"].(map[string]interface{})
+	if !ok {
+		return nil, "", fmt.Errorf("expected metadata field to be map[string]interface{}, got %T", resource["metadata"])
+	}
 	delete(metadata, "resourceVersion")
 	delete(metadata, "creationTimestamp")
 	delete(metadata, "managedFields")
 
-	return resource, kind
+	return resource, kind, nil
 }
 
 // validateResource checks if the resource has the required metadata fields.
@@ -82,9 +93,12 @@ func validateResource(resource map[string]interface{}) error {
 }
 
 // getResourceIdentifiers extracts the name and namespace from the resource's metadata.
-// It returns the name and namespace as strings.
-func getResourceIdentifiers(resource map[string]interface{}) (string, string) {
-	metadata := resource["metadata"].(map[string]interface{})
+// It returns the name, namespace, and an error if type assertions fail.
+func getResourceIdentifiers(resource map[string]interface{}) (string, string, error) {
+	metadata, ok := resource["metadata"].(map[string]interface{})
+	if !ok {
+		return "", "", fmt.Errorf("expected metadata field to be map[string]interface{}, got %T", resource["metadata"])
+	}
 	name, _ := metadata["name"].(string)
 	namespace, _ := metadata["namespace"].(string)
 
@@ -93,5 +107,5 @@ func getResourceIdentifiers(resource map[string]interface{}) (string, string) {
 		namespace = "cluster-scoped"
 	}
 
-	return name, namespace
+	return name, namespace, nil
 }
