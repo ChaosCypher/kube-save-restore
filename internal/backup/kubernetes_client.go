@@ -8,6 +8,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 // KubernetesClient defines the interface for interacting with Kubernetes resources
@@ -53,4 +54,7 @@ type KubernetesClient interface {
 
 	// ListIngresses returns a list of all ingresses in the specified namespace
 	ListIngresses(ctx context.Context, namespace string) (*networkingv1.IngressList, error)
+
+	// ListRoleBindings returns a list of all role bindings in the specified namespace
+	ListRoleBindings(ctx context.Context, namespace string) (*rbacv1.RoleBindingList, error)
 }

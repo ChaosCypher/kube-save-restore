@@ -66,6 +66,7 @@ func (bm *Manager) countResourcesInNamespace(ctx context.Context, namespace stri
 		"jobs":            bm.countJobs,
 		"pvcs":            bm.countPersistentVolumeClaims,
 		"ingresses":       bm.countIngresses,
+		"rolebindings":    bm.countRoleBindings,
 	}
 
 	var wg sync.WaitGroup
@@ -201,4 +202,12 @@ func (bm *Manager) countNamespaces(ctx context.Context) (int, error) {
 		return 0, err
 	}
 	return len(namespaces.Items), nil
+}
+
+func (bm *Manager) countRoleBindings(ctx context.Context, namespace string) (int, error) {
+	roleBindings, err := bm.client.ListRoleBindings(ctx, namespace)
+	if err != nil {
+		return 0, err
+	}
+	return len(roleBindings.Items), nil
 }

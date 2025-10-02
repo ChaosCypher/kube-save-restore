@@ -34,6 +34,8 @@ func (bm *Manager) backupResource(ctx context.Context, resourceType, namespace s
 		err = bm.backupPersistantVolumeClaims(ctx, namespace)
 	case "ingresses":
 		err = bm.backupIngresses(ctx, namespace)
+	case "rolebindings":
+		err = bm.backupRoleBindings(ctx, namespace)
 	default:
 		return fmt.Errorf("unknown resource type: %s", resourceType)
 	}
@@ -308,5 +310,26 @@ func (bm *Manager) backupNamespaces(ctx context.Context) error {
 			}
 		}
 	}
+	return nil
+}
+
+// backupRoleBindings backs up all role bindings in a given namespace
+func (bm *Manager) backupRoleBindings(ctx context.Context, namespace string) error {
+	roleBindings, err := bm.client.ListRoleBindings(ctx, namespace)
+	if err != nil {
+		return fmt.Errorf("error listing rolebindings in namespace %s: %v", namespace, err)
+	}
+
+	for _, roleBinding := range roleBindings.Items {
+		filename := filepath.Join(bm.backupDir, namespace, "rolebindings", roleBinding.Name+".json")
+		if bm.dryRun {
+			bm.logger.Infof("Would backup rolebinding: %s/%s", namespace, roleBinding.Name)
+		} else {
+			if err := bm.saveResource(roleBinding, "RoleBinding", filename); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }

@@ -12,6 +12,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -52,6 +53,8 @@ func applyResource(client *kubernetes.Client, resource map[string]interface{}, k
 		return applyPersistentVolumeClaim(client, adjustedData, namespace)
 	case "Ingress":
 		return applyIngress(client, adjustedData, namespace)
+	case "RoleBinding":
+		return applyRoleBinding(client, adjustedData, namespace)
 	default:
 		return fmt.Errorf("unsupported resource kind: %s", kind)
 	}
@@ -246,6 +249,21 @@ func applyIngress(client *kubernetes.Client, data []byte, namespace string) erro
 	_, err := client.Clientset.NetworkingV1().Ingresses(namespace).Update(context.TODO(), &ingress, metav1.UpdateOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		_, err = client.Clientset.NetworkingV1().Ingresses(namespace).Create(context.TODO(), &ingress, metav1.CreateOptions{})
+	}
+	return err
+}
+
+// applyRoleBinding applies a RoleBinding resource to the Kubernetes cluster
+func applyRoleBinding(client *kubernetes.Client, data []byte, namespace string) error {
+	var roleBinding rbacv1.RoleBinding
+	// Unmarshal the JSON data into a RoleBinding object
+	if err := json.Unmarshal(data, &roleBinding); err != nil {
+		return fmt.Errorf("error unmarshaling rolebinding: %v", err)
+	}
+	// Try to update the RoleBinding, if it does not exist, create it
+	_, err := client.Clientset.RbacV1().RoleBindings(namespace).Update(context.TODO(), &roleBinding, metav1.UpdateOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		_, err = client.Clientset.RbacV1().RoleBindings(namespace).Create(context.TODO(), &roleBinding, metav1.CreateOptions{})
 	}
 	return err
 }
