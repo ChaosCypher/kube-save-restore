@@ -12,6 +12,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -52,6 +53,8 @@ func applyResource(client *kubernetes.Client, resource map[string]interface{}, k
 		return applyPersistentVolumeClaim(client, adjustedData, namespace)
 	case "Ingress":
 		return applyIngress(client, adjustedData, namespace)
+	case "Role":
+		return applyRole(client, adjustedData, namespace)
 	case "NetworkPolicy":
 		return applyNetworkPolicy(client, adjustedData, namespace)
 	default:
@@ -248,6 +251,21 @@ func applyIngress(client *kubernetes.Client, data []byte, namespace string) erro
 	_, err := client.Clientset.NetworkingV1().Ingresses(namespace).Update(context.TODO(), &ingress, metav1.UpdateOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		_, err = client.Clientset.NetworkingV1().Ingresses(namespace).Create(context.TODO(), &ingress, metav1.CreateOptions{})
+	}
+	return err
+}
+
+// applyRole applies a Role resource to the Kubernetes cluster
+func applyRole(client *kubernetes.Client, data []byte, namespace string) error {
+	var role rbacv1.Role
+	// Unmarshal the JSON data into a Role object
+	if err := json.Unmarshal(data, &role); err != nil {
+		return fmt.Errorf("error unmarshaling role: %v", err)
+	}
+	// Try to update the Role, if it does not exist, create it
+	_, err := client.Clientset.RbacV1().Roles(namespace).Update(context.TODO(), &role, metav1.UpdateOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		_, err = client.Clientset.RbacV1().Roles(namespace).Create(context.TODO(), &role, metav1.CreateOptions{})
 	}
 	return err
 }

@@ -34,6 +34,8 @@ func (bm *Manager) backupResource(ctx context.Context, resourceType, namespace s
 		err = bm.backupPersistentVolumeClaims(ctx, namespace)
 	case "ingresses":
 		err = bm.backupIngresses(ctx, namespace)
+	case "roles":
+		err = bm.backupRoles(ctx, namespace)
 	case "networkpolicies":
 		err = bm.backupNetworkPolicies(ctx, namespace)
 	default:
@@ -284,6 +286,27 @@ func (bm *Manager) backupIngresses(ctx context.Context, namespace string) error 
 			bm.logger.Infof("Would backup ingress: %s/%s", namespace, ingress.Name)
 		} else {
 			if err := bm.saveResource(ingress, "Ingress", filename); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// backupRoles backs up all roles in a given namespace
+func (bm *Manager) backupRoles(ctx context.Context, namespace string) error {
+	roles, err := bm.client.ListRoles(ctx, namespace)
+	if err != nil {
+		return fmt.Errorf("error listing roles in namespace %s: %v", namespace, err)
+	}
+
+	for _, role := range roles.Items {
+		filename := filepath.Join(bm.backupDir, namespace, "roles", role.Name+".json")
+		if bm.dryRun {
+			bm.logger.Infof("Would backup role: %s/%s", namespace, role.Name)
+		} else {
+			if err := bm.saveResource(role, "Role", filename); err != nil {
 				return err
 			}
 		}

@@ -14,6 +14,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 // MockKubernetesClient is a mock implementation of the KubernetesClient interface
@@ -105,6 +106,12 @@ func (m *MockKubernetesClient) ListIngresses(ctx context.Context, namespace stri
 	return args.Get(0).(*networkingv1.IngressList), args.Error(1)
 }
 
+// ListRoles mocks the ListRoles method of the KubernetesClient interface
+func (m *MockKubernetesClient) ListRoles(ctx context.Context, namespace string) (*rbacv1.RoleList, error) {
+	args := m.Called(ctx, namespace)
+	return args.Get(0).(*rbacv1.RoleList), args.Error(1)
+}
+
 // ListNetworkPolicies mocks the ListNetworkPolicies method of the KubernetesClient interface
 func (m *MockKubernetesClient) ListNetworkPolicies(ctx context.Context, namespace string) (*networkingv1.NetworkPolicyList, error) {
 	args := m.Called(ctx, namespace)
@@ -130,6 +137,7 @@ func setupMockClient() *MockKubernetesClient {
 	mockClient.On("ListJobs", mock.Anything, "default").Return(&batchv1.JobList{Items: make([]batchv1.Job, 1)}, nil)
 	mockClient.On("ListPersistentVolumeClaims", mock.Anything, "default").Return(&corev1.PersistentVolumeClaimList{Items: make([]corev1.PersistentVolumeClaim, 1)}, nil)
 	mockClient.On("ListIngresses", mock.Anything, "default").Return(&networkingv1.IngressList{Items: make([]networkingv1.Ingress, 1)}, nil)
+	mockClient.On("ListRoles", mock.Anything, "default").Return(&rbacv1.RoleList{Items: make([]rbacv1.Role, 1)}, nil)
 	mockClient.On("ListNetworkPolicies", mock.Anything, "default").Return(&networkingv1.NetworkPolicyList{Items: make([]networkingv1.NetworkPolicy, 1)}, nil)
 	// Set up expectations for the kube-system namespace
 	mockClient.On("ListDeployments", mock.Anything, "kube-system").Return(&appsv1.DeploymentList{Items: make([]appsv1.Deployment, 2)}, nil)
@@ -144,6 +152,7 @@ func setupMockClient() *MockKubernetesClient {
 	mockClient.On("ListJobs", mock.Anything, "kube-system").Return(&batchv1.JobList{Items: make([]batchv1.Job, 1)}, nil)
 	mockClient.On("ListPersistentVolumeClaims", mock.Anything, "kube-system").Return(&corev1.PersistentVolumeClaimList{Items: make([]corev1.PersistentVolumeClaim, 2)}, nil)
 	mockClient.On("ListIngresses", mock.Anything, "kube-system").Return(&networkingv1.IngressList{Items: make([]networkingv1.Ingress, 2)}, nil)
+	mockClient.On("ListRoles", mock.Anything, "kube-system").Return(&rbacv1.RoleList{Items: make([]rbacv1.Role, 2)}, nil)
 	mockClient.On("ListNetworkPolicies", mock.Anything, "kube-system").Return(&networkingv1.NetworkPolicyList{Items: make([]networkingv1.NetworkPolicy, 2)}, nil)
 	return mockClient
 }
@@ -211,10 +220,10 @@ func TestCountResources(t *testing.T) {
 
 	// The total should be the sum of all resources in both namespaces
 	// and cluster-wide resources
-	// default namespace: 13 (1 of each resource type)
-	// kube-system namespace: 30
+	// default namespace: 14 (1 of each resource type)
+	// kube-system namespace: 32
 	// cluster-wide: 2
-	expectedCount := 45
+	expectedCount := 48
 	assert.Equal(t, expectedCount, count)
 
 	mockClient.AssertExpectations(t)
