@@ -1439,6 +1439,122 @@ func TestBackupAndRestoreIngress(t *testing.T) {
 	}
 }
 
+func TestBackupAndRestoreRole(t *testing.T) {
+	ctx := context.Background()
+	testNamespace := "test-role-namespace"
+	roleName := "test-role"
+
+	// Setup test configuration
+	testConfig := &config.Config{
+		Mode:       "backup",
+		BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
+		KubeConfig: getTestKubeconfig(t),
+		Context:    "minikube",
+		DryRun:     false,
+	}
+
+	// Setup logger
+	log := logger.SetupLogger(testConfig)
+
+	// Create Kubernetes client
+	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
+	if err != nil {
+		t.Fatalf("Failed to create Kubernetes client: %v", err)
+	}
+
+	// Create the test namespace
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNamespace,
+		},
+	}
+	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create namespace: %v", err)
+	}
+
+	// Create a Role
+	role := &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      roleName,
+			Namespace: testNamespace,
+			Labels: map[string]string{
+				"app": "test",
+			},
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{""},
+				Resources: []string{"pods"},
+				Verbs:     []string{"get", "list", "watch"},
+			},
+		},
+	}
+	_, err = kubeClient.Clientset.RbacV1().Roles(testNamespace).Create(ctx, role, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create Role: %v", err)
+	}
+
+	// Perform backup
+	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
+	err = backupManager.PerformBackup(ctx)
+	if err != nil {
+		t.Fatalf("Backup failed: %v", err)
+	}
+
+	// Edit the Role
+	role, err = kubeClient.Clientset.RbacV1().Roles(testNamespace).Get(ctx, roleName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get Role: %v", err)
+	}
+	role.Rules = append(role.Rules, rbacv1.PolicyRule{
+		APIGroups: []string{""},
+		Resources: []string{"services"},
+		Verbs:     []string{"get", "list"},
+	})
+	_, err = kubeClient.Clientset.RbacV1().Roles(testNamespace).Update(ctx, role, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to update Role: %v", err)
+	}
+
+	// Perform restore
+	testConfig.Mode = "restore"
+	testConfig.RestoreDir = testConfig.BackupDir
+	restoreManager := restore.NewManager(kubeClient, log)
+	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
+	if err != nil {
+		t.Fatalf("Restore failed: %v", err)
+	}
+
+	// Confirm the Role's settings were restored
+	role, err = kubeClient.Clientset.RbacV1().Roles(testNamespace).Get(ctx, roleName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get Role: %v", err)
+	}
+	if len(role.Rules) != 1 {
+		t.Fatalf("Expected 1 policy rule, got %d", len(role.Rules))
+	}
+	if len(role.Rules[0].Resources) != 1 || role.Rules[0].Resources[0] != "pods" {
+		t.Fatalf("Expected resource 'pods', got %v", role.Rules[0].Resources)
+	}
+
+	// Verify backup directory structure
+	roleBackupDir := filepath.Join(testConfig.BackupDir, testNamespace, "roles")
+	info, err := os.Stat(roleBackupDir)
+	if err != nil {
+		t.Fatalf("Role backup directory does not exist: %v", err)
+	}
+	if !info.IsDir() {
+		t.Fatalf("Role backup path is not a directory")
+	}
+
+	// Verify the role backup file exists
+	roleBackupFile := filepath.Join(roleBackupDir, roleName+".json")
+	if _, err := os.Stat(roleBackupFile); err != nil {
+		t.Fatalf("Role backup file does not exist: %v", err)
+	}
+}
+
 func TestBackupAndRestoreRoleBinding(t *testing.T) {
 	ctx := context.Background()
 	testNamespace := "test-rolebinding-namespace"

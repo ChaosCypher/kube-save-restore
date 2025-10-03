@@ -20,7 +20,7 @@ type Logger interface {
 }
 
 // resourceTypes defines the Kubernetes resource types to be backed up
-var resourceTypes = []string{"deployments", "services", "configmaps", "secrets", "serviceaccounts", "hpas", "statefulsets", "daemonsets", "cronjobs", "jobs", "pvcs", "ingresses", "rolebindings"}
+var resourceTypes = []string{"deployments", "services", "configmaps", "secrets", "serviceaccounts", "hpas", "statefulsets", "daemonsets", "cronjobs", "jobs", "pvcs", "ingresses", "roles", "networkpolicies", "rolebindings"}
 
 // Manager handles the backup process for Kubernetes resources
 type Manager struct {
@@ -77,7 +77,7 @@ func (bm *Manager) PerformBackup(ctx context.Context) error {
 
 	// Wait for all goroutines to finish
 	if err := g.Wait(); err != nil {
-		bm.logger.Errorf("Error during backup: %v", err)
+		return fmt.Errorf("backup failed: %v", err)
 	}
 
 	bm.logCompletionMessage(totalResources)

@@ -24,6 +24,8 @@ type ClientInterface interface {
 	PersistentVolumeClaimLister
 	IngressLister
 	RoleBindingLister
+	RoleLister
+	NetworkPolicyLister
 }
 
 // Client implements the ClientInterface
