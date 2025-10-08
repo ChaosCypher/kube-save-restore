@@ -55,6 +55,8 @@ func applyResource(client *kubernetes.Client, resource map[string]interface{}, k
 		return applyIngress(client, adjustedData, namespace)
 	case "Role":
 		return applyRole(client, adjustedData, namespace)
+	case "RoleBinding":
+		return applyRoleBinding(client, adjustedData, namespace)
 	case "NetworkPolicy":
 		return applyNetworkPolicy(client, adjustedData, namespace)
 	default:
@@ -266,6 +268,21 @@ func applyRole(client *kubernetes.Client, data []byte, namespace string) error {
 	_, err := client.Clientset.RbacV1().Roles(namespace).Update(context.TODO(), &role, metav1.UpdateOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		_, err = client.Clientset.RbacV1().Roles(namespace).Create(context.TODO(), &role, metav1.CreateOptions{})
+	}
+	return err
+}
+
+// applyRoleBinding applies a RoleBinding resource to the Kubernetes cluster
+func applyRoleBinding(client *kubernetes.Client, data []byte, namespace string) error {
+	var roleBinding rbacv1.RoleBinding
+	// Unmarshal the JSON data into a RoleBinding object
+	if err := json.Unmarshal(data, &roleBinding); err != nil {
+		return fmt.Errorf("error unmarshaling role binding: %v", err)
+	}
+	// Try to update the RoleBinding, if it does not exist, create it
+	_, err := client.Clientset.RbacV1().RoleBindings(namespace).Update(context.TODO(), &roleBinding, metav1.UpdateOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		_, err = client.Clientset.RbacV1().RoleBindings(namespace).Create(context.TODO(), &roleBinding, metav1.CreateOptions{})
 	}
 	return err
 }

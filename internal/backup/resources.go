@@ -36,6 +36,8 @@ func (bm *Manager) backupResource(ctx context.Context, resourceType, namespace s
 		err = bm.backupIngresses(ctx, namespace)
 	case "roles":
 		err = bm.backupRoles(ctx, namespace)
+	case "rolebindings":
+		err = bm.backupRoleBindings(ctx, namespace)
 	case "networkpolicies":
 		err = bm.backupNetworkPolicies(ctx, namespace)
 	default:
@@ -307,6 +309,27 @@ func (bm *Manager) backupRoles(ctx context.Context, namespace string) error {
 			bm.logger.Infof("Would backup role: %s/%s", namespace, role.Name)
 		} else {
 			if err := bm.saveResource(role, "Role", filename); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// backupRoleBindings backs up all role bindings in a given namespace
+func (bm *Manager) backupRoleBindings(ctx context.Context, namespace string) error {
+	roleBindings, err := bm.client.ListRoleBindings(ctx, namespace)
+	if err != nil {
+		return fmt.Errorf("error listing role bindings in namespace %s: %v", namespace, err)
+	}
+
+	for _, roleBinding := range roleBindings.Items {
+		filename := filepath.Join(bm.backupDir, namespace, "rolebindings", roleBinding.Name+".json")
+		if bm.dryRun {
+			bm.logger.Infof("Would backup role binding: %s/%s", namespace, roleBinding.Name)
+		} else {
+			if err := bm.saveResource(roleBinding, "RoleBinding", filename); err != nil {
 				return err
 			}
 		}

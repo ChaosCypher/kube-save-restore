@@ -1555,6 +1555,123 @@ func TestBackupAndRestoreRole(t *testing.T) {
 	}
 }
 
+func TestBackupAndRestoreRoleBinding(t *testing.T) {
+	ctx := context.Background()
+	testNamespace := "test-rolebinding-namespace"
+	roleBindingName := "test-rolebinding"
+
+	// Setup test configuration
+	testConfig := &config.Config{
+		Mode:       "backup",
+		BackupDir:  filepath.Join(os.TempDir(), "kube-save-restore-test"),
+		KubeConfig: getTestKubeconfig(t),
+		Context:    "minikube",
+		DryRun:     false,
+	}
+
+	// Setup logger
+	log := logger.SetupLogger(testConfig)
+
+	// Create Kubernetes client
+	kubeClient, err := kubernetes.NewClient(testConfig.KubeConfig, testConfig.Context, kubernetes.DefaultConfigModifier)
+	if err != nil {
+		t.Fatalf("Failed to create Kubernetes client: %v", err)
+	}
+
+	// Create the test namespace
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNamespace,
+		},
+	}
+	_, err = kubeClient.Clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create namespace: %v", err)
+	}
+
+	// Create a RoleBinding
+	roleBinding := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      roleBindingName,
+			Namespace: testNamespace,
+			Labels: map[string]string{
+				"app": "test",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "Role",
+			Name:     "test-role",
+			APIGroup: "rbac.authorization.k8s.io",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      "test-sa",
+				Namespace: testNamespace,
+			},
+		},
+	}
+	_, err = kubeClient.Clientset.RbacV1().RoleBindings(testNamespace).Create(ctx, roleBinding, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create RoleBinding: %v", err)
+	}
+
+	// Perform backup
+	backupManager := backup.NewManager(kubeClient, testConfig.BackupDir, testConfig.DryRun, log)
+	err = backupManager.PerformBackup(ctx)
+	if err != nil {
+		t.Fatalf("Backup failed: %v", err)
+	}
+
+	// Edit the RoleBinding
+	roleBinding, err = kubeClient.Clientset.RbacV1().RoleBindings(testNamespace).Get(ctx, roleBindingName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get RoleBinding: %v", err)
+	}
+	roleBinding.Subjects[0].Name = "modified-sa"
+	_, err = kubeClient.Clientset.RbacV1().RoleBindings(testNamespace).Update(ctx, roleBinding, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to update RoleBinding: %v", err)
+	}
+
+	// Perform restore
+	testConfig.Mode = "restore"
+	testConfig.RestoreDir = testConfig.BackupDir
+	restoreManager := restore.NewManager(kubeClient, log)
+	err = restoreManager.PerformRestore(testConfig.RestoreDir, testConfig.DryRun)
+	if err != nil {
+		t.Fatalf("Restore failed: %v", err)
+	}
+
+	// Confirm the RoleBinding's settings were restored
+	roleBinding, err = kubeClient.Clientset.RbacV1().RoleBindings(testNamespace).Get(ctx, roleBindingName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get RoleBinding: %v", err)
+	}
+	if len(roleBinding.Subjects) != 1 {
+		t.Fatalf("Expected 1 subject, got %d", len(roleBinding.Subjects))
+	}
+	if roleBinding.Subjects[0].Name != "test-sa" {
+		t.Fatalf("Expected ServiceAccount name 'test-sa', got %s", roleBinding.Subjects[0].Name)
+	}
+
+	// Verify backup directory structure
+	roleBindingBackupDir := filepath.Join(testConfig.BackupDir, testNamespace, "rolebindings")
+	info, err := os.Stat(roleBindingBackupDir)
+	if err != nil {
+		t.Fatalf("RoleBinding backup directory does not exist: %v", err)
+	}
+	if !info.IsDir() {
+		t.Fatalf("RoleBinding backup path is not a directory")
+	}
+
+	// Verify the rolebinding backup file exists
+	roleBindingBackupFile := filepath.Join(roleBindingBackupDir, roleBindingName+".json")
+	if _, err := os.Stat(roleBindingBackupFile); err != nil {
+		t.Fatalf("RoleBinding backup file does not exist: %v", err)
+	}
+}
+
 func TestBackupAndRestoreNetworkPolicy(t *testing.T) {
 	ctx := context.Background()
 	testNamespace := "test-networkpolicy-namespace"
