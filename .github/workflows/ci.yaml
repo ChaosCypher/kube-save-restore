@@ -178,7 +178,7 @@ jobs:
           go tool cover -html=coverage.out -o coverage.html
 
       - name: Upload Coverage Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: coverage-report
           path: coverage.html
@@ -265,7 +265,7 @@ jobs:
           GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o kube-save-restore-${{ matrix.os }}-${{ matrix.arch }}
 
       - name: Upload Compiled Binaries
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: kube-save-restore-binaries-${{ matrix.os }}-${{ matrix.arch }}
           path: kube-save-restore-${{ matrix.os }}-${{ matrix.arch }}
