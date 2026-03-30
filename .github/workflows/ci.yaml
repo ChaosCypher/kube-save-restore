@@ -214,7 +214,7 @@ jobs:
         run: go mod download
 
       - name: Setup Kubectl
-        uses: azure/setup-kubectl@v4
+        uses: azure/setup-kubectl@v5
 
       - name: Start Minikube
         uses: medyagh/setup-minikube@v0.0.19
